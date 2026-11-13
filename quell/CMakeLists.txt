@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 # macOS: one universal build for Apple silicon and Intel
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS")
-project(Quell VERSION 1.0.1 LANGUAGES C CXX)
+project(Quell VERSION 1.0.2 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(QUELL_COPY_AFTER_BUILD "Install into the user plug-in folders after building" OFF)
@@ -35,7 +35,7 @@ if(QUELL_BUILD_VST2)
 endif()
 
 juce_add_plugin(Quell
-    VERSION 1.0.1
+    VERSION 1.0.2
     COMPANY_NAME "FreakiePie"
     BUNDLE_ID "com.freakiepie.quell"
     PLUGIN_MANUFACTURER_CODE Frkp
@@ -67,7 +67,7 @@ juce_add_console_app(QuellTest PRODUCT_NAME "QuellTest")
 target_sources(QuellTest PRIVATE tests/Test.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp)
 target_compile_definitions(QuellTest PRIVATE ${QL_DEFS} JucePlugin_Name="Quell" JucePlugin_Build_Standalone=1
     JucePlugin_IsSynth=0 JucePlugin_WantsMidiInput=0 JucePlugin_ProducesMidiOutput=0 JucePlugin_IsMidiEffect=0
-    JucePlugin_ManufacturerCode=0x46726b70 JucePlugin_PluginCode=0x51656c6c JucePlugin_VersionString="1.0.1"
+    JucePlugin_ManufacturerCode=0x46726b70 JucePlugin_PluginCode=0x51656c6c JucePlugin_VersionString="1.0.2"
     JucePlugin_Manufacturer="FreakiePie" JucePlugin_Desc="Quell" JucePlugin_VersionCode=0x10001 QUELL_TEST=1)
 target_link_libraries(QuellTest PRIVATE juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 endif()
