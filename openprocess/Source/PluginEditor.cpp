@@ -27,7 +27,9 @@ float ease (float t) { t = juce::jlimit (0.0f, 1.0f, t); return t * t * (3.0f - 
 juce::Colour outerOf (int cell) { return cell == kLiveCell ? juce::Colour (0xff1e1e1e) : bank::outerColour (cell); }
 juce::Colour innerOf (int cell) { return cell == kLiveCell ? juce::Colour (0xffd42a24) : bank::innerColour (cell); }
 
-const char* kMotionNames[motion::Count] = { "orbit", "swing", "rise", "drift" };
+const char* kMotionNames[motion::Count] = { "orbit", "swing", "rise", "drift", "spiral", "figure 8", "arc", "approach", "hop", "flutter", "boids", "lorenz" };
+const char* kDistNames[6] = { "rolloff", "air", "spread", "blur", "near", "motion speed" };
+const char* kDistIds[6] = { "rolloff", "air", "spread", "blur", "near", "mspeed" };
 } // namespace
 
 OpEditor::OpEditor (OpProcessor& p) : AudioProcessorEditor (p), proc (p)
@@ -61,7 +63,8 @@ OpEditor::Pt OpEditor::itemPos (const Item& i) const
     const auto m = mixRect();
     float x = i.x, y = i.y;
    #if OP_SPATIAL
-    space::moved (i, motionT, x, y);
+    float d;
+    posOf (i, x, y, d);
    #endif
     return { m.getX() + 24 + x * (m.getWidth() - 48), m.getY() + 18 + (1.0f - y) * (m.getHeight() - 36) };
 }
@@ -107,12 +110,53 @@ OpEditor::Rect OpEditor::attachedMotionRect (int voiceId, const Item& i) const
     return { b.getRight() + (i.effect != fx::None ? 24.0f : 6.0f), b.getCentreY() - 7, 14, 14 };
 }
 
-OpEditor::Pt OpEditor::planPos (const Item& i, double t) const
+OpEditor::Proj OpEditor::project (float x, float y, float z) const
 {
-    float x = i.x, y = i.y;
-    space::moved (i, t, x, y);
-    const float az = space::azimuth (x), r = kPlanR * (0.08f + 0.92f * i.d);
-    return planCentre() + Pt (-r * std::sin (az), -r * std::cos (az));
+    // top view at rest (front up, left left); viewYaw turns it round the vertical, viewPitch tips it
+    const float cy = std::cos (viewYaw), sy = std::sin (viewYaw);
+    const float x1 = x * cy - y * sy, y1 = x * sy + y * cy;
+    const float sx = -y1, syy = x1, sz = z;
+    const float cp = std::cos (viewPitch), spi = std::sin (viewPitch);
+    const float sy2 = syy * cp - sz * spi, sz2 = syy * spi + sz * cp;
+    return { planCentre() + Pt (sx * kPlanR, -sy2 * kPlanR), sz2 };
+}
+
+void OpEditor::movedNow (const Item& i, double clock, float& x, float& y, float& d) const
+{
+    space::moved (i, clock - i.motionStart, x, y, d);
+    if (i.motion == motion::Boids) proc.boidPos (i.id, x, y, d);
+}
+
+void OpEditor::posOf (const Item& i, float& x, float& y, float& d) const
+{
+    if (! playing) { movedNow (i, motionT, x, y, d); return; }
+    // on the timeline a motion runs from its segment's start at that segment's speed
+    const auto sp = shownSpace();
+    space::moved (i, (motionT - i.motionStart) * sp.mspeed, x, y, d);
+    if (i.motion == motion::Boids) proc.boidPos (i.id, x, y, d);
+}
+
+SpaceParams OpEditor::shownSpace() const
+{
+    // while the timeline plays, the settings of the newest sounding segment taken with them
+    auto sp = proc.readSpace();
+    if (playing)
+    {
+        const double L = cur.minutes * 60.0;
+        float newest = -1.0f;
+        for (auto& sg : cur.segs)
+            if (sg.snap.hasSpace && tlSeconds >= sg.start * L && tlSeconds < (sg.start + sg.len) * L && sg.start > newest)
+            { newest = sg.start; sp = sg.snap.space; }
+    }
+    return sp;
+}
+
+OpEditor::Pt OpEditor::planPos (const Item& i, double) const
+{
+    float x, y, d;
+    posOf (i, x, y, d);
+    const float az = space::azimuth (x), el = space::elevation (y), r = 0.08f + 0.92f * d;
+    return project (r * std::cos (el) * std::cos (az), r * std::cos (el) * std::sin (az), r * std::sin (el)).p;
 }
 
 int OpEditor::planItemAt (Pt p) const
@@ -180,7 +224,12 @@ std::vector<OpEditor::DrawItem> OpEditor::visibleItems() const
         for (auto& s : cur.segs)
             if (tlSeconds >= s.start * L && tlSeconds < (s.start + s.len) * L)
                 for (size_t k = 0; k < s.snap.items.size(); ++k)
-                    v.push_back ({ Engine::timelineVoiceId (s.id, (int) k), s.snap.items[k], false });
+                {
+                    Item it = s.snap.items[k];
+                    it.id = Engine::timelineVoiceId (s.id, (int) k);
+                    it.motionStart = s.start * L;
+                    v.push_back ({ Engine::timelineVoiceId (s.id, (int) k), it, false });
+                }
     }
     else
         for (auto& i : cur.mix) v.push_back ({ i.id, i, true });
@@ -196,6 +245,21 @@ void OpEditor::timerCallback()
     motionT = proc.motionTime();
     ambiOrder = proc.ambisonicOrder();
     inLevel = juce::jmax (proc.inputLevel(), inLevel * 0.8f);
+   #if OP_SPATIAL
+    {
+        const float m = proc.params.getRawParameterValue ("master")->load() * 0.7f;
+        const float off = 20.0f * std::log10 (juce::jmax (1.0e-6f, m)) + 3.0f;   // the bins hold mean square of a stereo pair
+        float peak = -100.0f;
+        auto ballistic = [&] (float& lv, float e) {
+            const float db = 10.0f * std::log10 (juce::jmax (1.0e-12f, e)) + off;
+            lv = db > lv ? db : juce::jmax (db, lv - 1.2f);      // fast up, about 36 dB a second down
+            peak = juce::jmax (peak, lv);
+        };
+        for (int b = 0; b < 28; ++b) ballistic (lvAz[(size_t) b], proc.meterAz (b));
+        for (int b = 0; b < 10; ++b) ballistic (lvEl[(size_t) b], proc.meterEl (b));
+        lvPeak = peak;
+    }
+   #endif
     clampView();
     if (playing && drag != Drag::View && viewLen < 1.0f)
     {
@@ -347,39 +411,18 @@ void OpEditor::renderStatic (juce::Graphics& g)
         for (float y = c.y - kPlanR; y < c.y + kPlanR; y += 6)
             for (float x = c.x - kPlanR; x < c.x + kPlanR; x += 6)
                 if (Pt (x, y).getDistanceFrom (c) < kPlanR) g.fillRect (x, y, 1.2f, 1.2f);
-        g.setColour (kInk.withAlpha (0.3f));
-        for (float d : { 0.25f, 0.5f, 0.75f, 1.0f })
-        {
-            const float r = kPlanR * (0.08f + 0.92f * d);
-            g.drawEllipse (c.x - r, c.y - r, r * 2, r * 2, d == 1.0f ? 1.2f : 0.8f);
-        }
-        g.setColour (kInk.withAlpha (0.55f));
-        g.fillRect (c.x - 0.5f, c.y - kPlanR, 1.0f, kPlanR * 2);
-        g.fillRect (c.x - kPlanR, c.y - 0.5f, kPlanR * 2, 1.0f);
-        // you
-        g.setColour (kInk);
-        g.fillEllipse (c.x - 6, c.y - 6, 12, 12);
-        juce::Path nose;
-        nose.addTriangle (c.x - 4, c.y - 4, c.x + 4, c.y - 4, c.x, c.y - 11);
-        g.fillPath (nose);
-        g.setColour (kInk.withAlpha (0.6f));
-        g.setFont (labelFont (8.5f));
-        g.drawText ("front", Rect (c.x + 3, c.y - kPlanR + 2, 40, 11), juce::Justification::centredLeft, false);
-        g.drawText ("behind", Rect (c.x + 3, c.y + kPlanR - 13, 50, 11), juce::Justification::centredLeft, false);
-        g.drawText ("left", Rect (c.x - kPlanR + 2, c.y - 13, 40, 11), juce::Justification::centredLeft, false);
-        g.drawText ("right", Rect (c.x + kPlanR - 42, c.y - 13, 40, 11), juce::Justification::centredRight, false);
     }
     // motions: icons on red pointers, like the effects
     for (int i = 0; i < motion::Count; ++i)
     {
         const auto r = motionRect (i);
         juce::Path tri;
-        tri.addTriangle (r.getX() + 32, r.getY() + 2, r.getX() + 60, r.getY() + 18, r.getX() + 32, r.getY() + 34);
+        tri.addTriangle (r.getX() + 25, r.getY() + 1, r.getX() + 41, r.getY() + 13, r.getX() + 25, r.getY() + 25);
         g.setColour (kRed);
         g.fillPath (tri);
         g.setColour (juce::Colours::white);
-        g.setFont (labelFont (9.5f));
-        g.drawText (kMotionNames[i], Rect (r.getX() - 4, r.getY() + 36, 44, 12), juce::Justification::centred, false);
+        g.setFont (labelFont (8.0f));
+        g.drawText (kMotionNames[i], Rect (r.getX() - 8, r.getY() + 27, 44, 11), juce::Justification::centred, false);
     }
     g.setColour (juce::Colours::white);
     g.setFont (labelFont (9.5f));
@@ -425,12 +468,74 @@ void OpEditor::drawMotionIcon (juce::Graphics& g, int type, Rect r)
             p.addArrow ({ c.x, c.y + 7 * u, c.x, c.y - 11 * u }, 2.6f * u, 9 * u, 7 * u);
             g.fillPath (p);
             break;
-        default:
+        case motion::Drift:
             p.startNewSubPath (c.x - 11 * u, c.y + 4 * u);
             p.cubicTo (c.x - 6 * u, c.y - 12 * u, c.x - 2 * u, c.y + 12 * u, c.x + 3 * u, c.y - 2 * u);
             p.cubicTo (c.x + 6 * u, c.y - 9 * u, c.x + 9 * u, c.y - 6 * u, c.x + 11 * u, c.y - 8 * u);
             g.strokePath (p, juce::PathStrokeType (2.6f * u, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
             break;
+        case motion::Spiral:
+            for (int k = 0; k <= 40; ++k)
+            {
+                const float a = k / 40.0f * 4.0f * kPi, r = (2.0f + 9.0f * k / 40.0f) * u;
+                const Pt q (c.x + r * std::cos (a), c.y + r * std::sin (a));
+                if (k == 0) p.startNewSubPath (q); else p.lineTo (q);
+            }
+            g.strokePath (p, juce::PathStrokeType (2.2f * u));
+            break;
+        case motion::Figure8:
+            for (int k = 0; k <= 48; ++k)
+            {
+                const float a = k / 48.0f * 2.0f * kPi;
+                const Pt q (c.x + 11 * u * std::sin (a), c.y + 7 * u * std::sin (2 * a));
+                if (k == 0) p.startNewSubPath (q); else p.lineTo (q);
+            }
+            g.strokePath (p, juce::PathStrokeType (2.4f * u));
+            break;
+        case motion::Arc:
+            p.addCentredArc (c.x, c.y + 8 * u, 11 * u, 13 * u, 0, -kPi * 0.5f, kPi * 0.5f, true);
+            g.strokePath (p, juce::PathStrokeType (2.6f * u));
+            g.fillRect (c.x - 13 * u, c.y + 8 * u, 26 * u, 2.4f * u);
+            break;
+        case motion::Approach:
+            g.fillEllipse (c.x - 3 * u, c.y - 3 * u, 6 * u, 6 * u);
+            g.drawEllipse (c.x - 8 * u, c.y - 8 * u, 16 * u, 16 * u, 1.6f * u);
+            g.drawEllipse (c.x - 12.5f * u, c.y - 12.5f * u, 25 * u, 25 * u, 1.2f * u);
+            break;
+        case motion::Hop:
+            for (auto q : { Pt (-9, 7), Pt (-1, -6), Pt (8, 3) }) g.fillRect (c.x + q.x * u - 3 * u, c.y + q.y * u - 3 * u, 6 * u, 6 * u);
+            p.startNewSubPath (c.x - 9 * u, c.y + 4 * u); p.quadraticTo (c.x - 6 * u, c.y - 10 * u, c.x - 1 * u, c.y - 9 * u);
+            p.startNewSubPath (c.x - 1 * u, c.y - 3 * u); p.quadraticTo (c.x + 5 * u, c.y - 7 * u, c.x + 8 * u, c.y);
+            g.strokePath (p, juce::PathStrokeType (1.4f * u));
+            break;
+        case motion::Flutter:
+            p.startNewSubPath (c.x - 12 * u, c.y);
+            for (int k = 1; k <= 12; ++k) p.lineTo (c.x - 12 * u + k * 2 * u, c.y + ((k % 2) ? -6.0f : 6.0f) * u);
+            g.strokePath (p, juce::PathStrokeType (1.8f * u));
+            break;
+        case motion::Boids:
+            for (auto q : { Pt (-7, -5), Pt (4, -8), Pt (-2, 4), Pt (8, 3), Pt (-9, 8) })
+            {
+                juce::Path b;
+                b.addTriangle (q.x * u - 3.5f * u, q.y * u + 2.5f * u, q.x * u + 3.5f * u, q.y * u + 2.5f * u, q.x * u + 1.0f * u, q.y * u - 4.0f * u);
+                b.applyTransform (juce::AffineTransform::translation (c.x, c.y));
+                g.fillPath (b);
+            }
+            break;
+        default:   // lorenz: the two wings
+        {
+            float x = 0.1f, y = 0.0f, z = 20.0f;
+            for (int k = 0; k < 900; ++k)
+            {
+                const float dx = 10.0f * (y - x), dy = x * (28.0f - z) - y, dz = x * y - 8.0f / 3.0f * z;
+                x += dx * 0.008f; y += dy * 0.008f; z += dz * 0.008f;
+                const Pt q (c.x + x * 0.55f * u, c.y + 11 * u - z * 0.45f * u);
+                if (k < 100) continue;
+                if (k == 100) p.startNewSubPath (q); else p.lineTo (q);
+            }
+            g.strokePath (p, juce::PathStrokeType (1.0f * u));
+            break;
+        }
     }
 }
 
@@ -451,7 +556,7 @@ void OpEditor::drawMotions (juce::Graphics& g)
     {
         juce::Graphics::ScopedSaveState ss (g);
         if (drag == Drag::Motion && dragIndex == i && moved) g.setOpacity (0.4f);
-        drawMotionIcon (g, i, motionRect (i).withSize (30, 30).translated (2, 3));
+        drawMotionIcon (g, i, motionRect (i).withSize (24, 24).translated (1, 1));
     }
 }
 
@@ -477,32 +582,179 @@ void OpEditor::drawOrder (juce::Graphics& g)
 
 void OpEditor::drawPlan (juce::Graphics& g)
 {
-    const auto items = visibleItems();
-    for (auto& d : items)
-    {
-        const auto& i = d.item;
-        const Pt p = planPos (i, motionT);
-        const float sz = 13.0f - 5.0f * i.d;
-        const auto r = Rect (p.x - sz * 0.5f, p.y - sz * 0.5f, sz, sz);
-        g.setColour (outerOf (i.cell));
-        g.fillRect (r);
-        g.setColour (juce::Colours::white);
-        g.fillRect (r.reduced (sz * 0.18f));
-        g.setColour (innerOf (i.cell));
-        g.fillRect (r.reduced (sz * 0.32f));
-        // above or below the horizon: a short stalk up or down
-        const float el = space::elevation (i.y);
-        if (std::abs (el) > 0.1f)
+    // the globe: rings on the horizon at four distances, the circle through overhead, you in the middle
+    const Pt c = planCentre();
+    auto ring = [&] (auto fn, float alpha, float w) {
+        auto prev = fn (0.0f);
+        for (int k = 1; k <= 72; ++k)
         {
-            g.setColour (kInk.withAlpha (0.6f));
-            const float len = 9.0f * std::sin (el);
-            g.drawLine (p.x, p.y - sz * 0.5f * (el > 0 ? 1.0f : -1.0f), p.x, p.y - sz * 0.5f * (el > 0 ? 1.0f : -1.0f) - len, 1.2f);
+            const auto cur = fn (k / 72.0f * 2.0f * kPi);
+            const bool behind = prev.depth + cur.depth < -0.04f;
+            g.setColour (kInk.withAlpha (behind ? alpha * 0.4f : alpha));
+            g.drawLine ({ prev.p, cur.p }, behind ? w * 0.8f : w);
+            prev = cur;
         }
-        if (d.live && i.id == selectedItem)
+    };
+    for (float d : { 0.25f, 0.5f, 0.75f, 1.0f })
+    {
+        const float r = 0.08f + 0.92f * d;
+        ring ([&] (float a) { return project (r * std::cos (a), r * std::sin (a), 0.0f); }, d == 1.0f ? 0.45f : 0.22f, d == 1.0f ? 1.2f : 0.8f);
+    }
+    ring ([&] (float a) { return project (std::cos (a), 0.0f, std::sin (a)); }, 0.18f, 0.8f);      // front - overhead - behind
+    ring ([&] (float a) { return project (0.0f, std::cos (a), std::sin (a)); }, 0.12f, 0.8f);      // left - overhead - right
+    g.setColour (kInk.withAlpha (0.45f));
+    for (auto ax : { std::make_pair (Pt (1, 0), true), std::make_pair (Pt (0, 1), false) })
+    {
+        const auto a0 = project (-ax.first.x, -ax.first.y, 0), a1 = project (ax.first.x, ax.first.y, 0);
+        g.drawLine ({ a0.p, a1.p }, ax.second ? 1.0f : 0.7f);
+    }
+    g.setFont (labelFont (8.5f));
+    const struct { float x, y, z; const char* t; } marks[] = { { 1.05f, 0, 0, "front" }, { -1.05f, 0, 0, "behind" },
+                                                              { 0, 1.05f, 0, "left" }, { 0, -1.05f, 0, "right" }, { 0, 0, 1.0f, "up" } };
+    for (auto& mk : marks)
+    {
+        const auto pr = project (mk.x, mk.y, mk.z);
+        if (mk.z > 0 && globeAtTop()) continue;
+        g.setColour (kInk.withAlpha (pr.depth < -0.05f ? 0.3f : 0.65f));
+        g.drawText (mk.t, Rect (pr.p.x - 24, pr.p.y - 6, 48, 12), juce::Justification::centred, false);
+    }
+
+    // you: the head faces where the scene's front now is (the scene turn turns you the other way)
+    const auto sp = shownSpace();
+    {
+        float faz = 0.0f, fel = 0.0f;
+        SpaceParams inv; inv.yaw = -sp.yaw; inv.pitch = 0.0f;
+        space::rotate (faz, fel, inv);
+        const auto tip = project (0.13f * std::cos (faz), 0.13f * std::sin (faz), 0.0f);
+        g.setColour (kInk);
+        g.fillEllipse (c.x - 6, c.y - 6, 12, 12);
+        juce::Path nose;
+        const Pt dir = (tip.p - c);
+        const Pt nrm (-dir.y * 0.45f, dir.x * 0.45f);
+        nose.addTriangle (c + nrm, c - nrm, tip.p);
+        g.fillPath (nose);
+    }
+
+    // the sounds, far side first
+    const auto items = visibleItems();
+    std::vector<std::pair<float, size_t>> order;
+    std::vector<Proj> where (items.size());
+    for (size_t k = 0; k < items.size(); ++k)
+    {
+        float x, y, d;
+        posOf (items[k].item, x, y, d);
+        const float az = space::azimuth (x), el = space::elevation (y), r = 0.08f + 0.92f * d;
+        where[k] = project (r * std::cos (el) * std::cos (az), r * std::cos (el) * std::sin (az), r * std::sin (el));
+        order.push_back ({ where[k].depth, k });
+    }
+    std::sort (order.begin(), order.end());
+    for (auto& o : order)
+    {
+        const auto& dI = items[o.second];
+        const auto& i = dI.item;
+        const Pt p = where[o.second].p;
+        const float back = where[o.second].depth < -0.05f ? 0.45f : 1.0f;
+        const float sz = (13.0f - 5.0f * i.d) * (0.85f + 0.15f * back);
+        const auto r = Rect (p.x - sz * 0.5f, p.y - sz * 0.5f, sz, sz);
+        g.setColour (outerOf (i.cell).withMultipliedAlpha (back));
+        g.fillRect (r);
+        g.setColour (juce::Colours::white.withMultipliedAlpha (back));
+        g.fillRect (r.reduced (sz * 0.18f));
+        g.setColour (innerOf (i.cell).withMultipliedAlpha (back));
+        g.fillRect (r.reduced (sz * 0.32f));
+        if (globeAtTop())
+        {
+            // seen from above: a short stalk up or down shows the height
+            const float el = space::elevation (i.y);
+            if (std::abs (el) > 0.1f)
+            {
+                g.setColour (kInk.withAlpha (0.6f));
+                const float len = 9.0f * std::sin (el), sg = el > 0 ? 1.0f : -1.0f;
+                g.drawLine (p.x, p.y - sz * 0.5f * sg, p.x, p.y - sz * 0.5f * sg - len, 1.2f);
+            }
+        }
+        if (dI.live && i.id == selectedItem)
         {
             g.setColour (kRed);
             g.drawRect (r.expanded (3), 1.5f);
         }
+    }
+    if (! globeAtTop() || std::abs (sp.yaw) > 0.001f || std::abs (sp.pitch) > 0.001f)
+    {
+        g.setColour (kRed);
+        g.setFont (labelFont (8.5f));
+        juce::String t;
+        if (! globeAtTop()) t << "view turned  ";
+        if (std::abs (sp.yaw) > 0.001f || std::abs (sp.pitch) > 0.001f)
+            t << "scene " << juce::roundToInt (sp.yaw * 180.0f / kPi) << juce::String::fromUTF8 ("\u00b0 / ")
+              << juce::roundToInt (sp.pitch * 180.0f / kPi) << juce::String::fromUTF8 ("\u00b0");
+        g.drawText (t, Rect (c.x - 90, c.y + kPlanR - 4, 180, 11), juce::Justification::centred, false);
+    }
+}
+
+void OpEditor::drawDistance (juce::Graphics& g)
+{
+    // five rails, like the loop strip: a grey bar, the value in the reel colour, a red pointer
+    for (int k = 0; k < kDistParams; ++k)
+    {
+        const auto r = distRect (k);
+        auto* prm = proc.params.getParameter (kDistIds[k]);
+        float v = prm != nullptr ? prm->getValue() : 0.0f;
+        if (playing && prm != nullptr)
+        {
+            const auto sp = shownSpace();
+            const float vals[6] = { sp.rolloff, sp.air, sp.spread, sp.blur, sp.nearR, sp.mspeed };
+            v = prm->convertTo0to1 (vals[k]);
+        }
+        g.setColour (juce::Colours::white);
+        g.setFont (labelFont (8.5f));
+        const float real = prm != nullptr ? prm->convertFrom0to1 (v) : 0.0f;
+        juce::String val = k == 4 ? juce::String (metres (real), 1) + " m"
+                         : k == 5 ? juce::String::fromUTF8 ("\u00d7") + juce::String (real, real < 1.0f ? 2 : 1)
+                                  : juce::String (juce::roundToInt (v * 100.0f)) + " %";
+        g.drawText (kDistNames[k], Rect (r.getX(), r.getY(), 84, 10), juce::Justification::centredLeft, false);
+        g.drawText (val, Rect (r.getRight() - 52, r.getY(), 52, 10), juce::Justification::centredRight, false);
+        const Rect rail (r.getX(), r.getY() + 11, r.getWidth(), 4);
+        g.setColour (kFrameDark);
+        g.fillRect (rail);
+        g.setColour (kYellow);
+        g.fillRect (rail.withWidth (rail.getWidth() * v));
+        juce::Path t;
+        const float x = rail.getX() + v * rail.getWidth();
+        t.addTriangle (x, rail.getBottom(), x - 4, rail.getBottom() + 6, x + 4, rail.getBottom() + 6);
+        g.setColour (kRed);
+        g.fillPath (t);
+    }
+}
+
+void OpEditor::drawMeter (juce::Graphics& g)
+{
+    // the frame's grey squares light up: the row under the play area by direction (as the play area),
+    // the column on its left by height: grey below -36 dB, mustard to -24, yellow to -14, orange to -6, then red
+    auto colourFor = [] (float db) {
+        if (db < -36.0f) return kFrameDark;
+        if (db < -24.0f) return kFrameDark.interpolatedWith (kMustard, (db + 36.0f) / 12.0f);
+        if (db < -14.0f) return kMustard.interpolatedWith (kYellow, (db + 24.0f) / 10.0f);
+        if (db < -6.0f) return kYellow.interpolatedWith (kOrange, (db + 14.0f) / 8.0f);
+        return kOrange.interpolatedWith (kRed, juce::jlimit (0.0f, 1.0f, (db + 6.0f) / 6.0f));
+    };
+    int k = 0;
+    for (float x = 156; x < 870 && k < 28; x += 26, ++k)
+    {
+        g.setColour (colourFor (lvAz[(size_t) k]));
+        g.fillRect (x, 560.0f, 14.0f, 12.0f);
+    }
+    k = 0;
+    for (float y = 240; y < 548 && k < 10; y += 34, ++k)
+    {
+        g.setColour (colourFor (lvEl[(size_t) (9 - k)]));
+        g.fillRect (138.0f, y, 12.0f, 18.0f);
+    }
+    if (lvPeak > -60.0f)
+    {
+        g.setColour (juce::Colours::white);
+        g.setFont (labelFont (8.5f));
+        g.drawText ("peak " + juce::String (lvPeak, 1) + " dB", Rect (40, 226, 98, 11), juce::Justification::centredRight, false);
     }
 }
 
@@ -618,6 +870,8 @@ void OpEditor::paint (juce::Graphics& g)
     drawPlan (g);
     drawMotions (g);
     drawOrder (g);
+    drawDistance (g);
+    drawMeter (g);
     drawLiveSquare (g, liveRect(), inLevel);
    #endif
     drawItems (g);
@@ -764,7 +1018,17 @@ void OpEditor::drawItems (juce::Graphics& g)
             drawFxIcon (g, i.effect, attachedFxRect (d.voiceId, i));
        #if OP_SPATIAL
         if (i.motion != motion::None && ! (drag == Drag::AttachedMotion && dragIndex == i.id && moved))
-            drawMotionIcon (g, i.motion, attachedMotionRect (d.voiceId, i));
+        {
+            const auto mr = attachedMotionRect (d.voiceId, i);
+            drawMotionIcon (g, i.motion, mr);
+            if (std::abs (i.mrate - 1.0f) > 0.01f)
+            {
+                g.setColour (kInk);
+                g.setFont (labelFont (8.5f));
+                g.drawText (juce::String::fromUTF8 ("\u00d7") + juce::String (i.mrate, i.mrate < 1.0f ? 2 : 1),
+                            Rect (mr.getRight() + 2, mr.getY(), 40, mr.getHeight()), juce::Justification::centredLeft, false);
+            }
+        }
         if (d.live && i.id == selectedItem)
         {
             g.setColour (kInk);
@@ -1045,8 +1309,10 @@ void OpEditor::drawGuide (juce::Graphics& g)
         g.drawText ("round to the right", juce::Rectangle<float> (m.getRight() - 240, cy - 18, 200, 16), juce::Justification::centredRight, false);
         drawTag (g, { 12, 405, 300, 18 }, "try presets", juce::Justification::centredRight, kTag, kInk);
         drawTag (g, { 690, 405, 200, 18 }, "drag effects", juce::Justification::centredLeft, kTag, kInk);
-        drawTag (g, { 616, 96, 250, 18 }, "drag motions onto sounds", juce::Justification::centredLeft, kTag, kInk);
-        drawTag (g, { 20, 206, 250, 18 }, "seen from above: drag = distance", juce::Justification::centredLeft, kTag, kInk);
+        drawTag (g, { 598, 108, 250, 16 }, "drag motions onto sounds", juce::Justification::centredLeft, kTag, kInk);
+        drawTag (g, { 690, 142, 170, 16 }, "distance, motion speed", juce::Justification::centredRight, kTag, kInk);
+        drawTag (g, { 8, 206, 280, 16 }, "drag sounds; drag around it to turn the view", juce::Justification::centredLeft, kTag, kInk);
+        drawTag (g, { 8, 2, 230, 16 }, "shift-drag turns the scene itself", juce::Justification::centredLeft, kOrange, kInk);
         drawTag (g, { 498, 76, 90, 18 }, "live input", juce::Justification::centredLeft, kOrange, kInk);
         drawTag (g, { 548, 534, 76, 18 }, "drag...", juce::Justification::centredLeft, kOrange, kInk);
         drawTag (g, { 128, 608, 246, 18 }, "... and store configurations here.", juce::Justification::centredRight, kTag, kInk);
@@ -1122,24 +1388,26 @@ void OpEditor::drawHelp (juce::Graphics& g)
         "play area: the sphere around you, unrolled. the middle is in front of you,",
         "the quarter lines are left and right, both edges are behind you.",
         "up / down is the height: from 45 degrees below to straight overhead.",
-        "plan (top left): the room from above. drag a sound there to bring it",
-        "near or far, or turn the mouse wheel over a sound. near is loud and wide.",
-        "motions (top right): drag onto a sound - orbit, swing, rise, drift.",
+        "globe (top left): drag a sound there to place it (from above: near / far).",
+        "drag around it to turn the view; shift-drag turns the scene; double-click: back.",
+        "mouse wheel over a sound: nearer / further. near is loud, wide and bright.",
+        "motions (top right, 12): drag onto a sound. each sound runs its own, from",
+        "where it is; wheel over its little icon for speed. rails: distance settings.",
         "effects (right): fade in+out, in, out, mute, solo. drag off to remove.",
         "red square 'in': drag it into the play area to place the live input.",
-        "click a sound: the red pointers set the part of the sample that loops.",
-        "presets: a new scene with each click. operators: random lengths / places.",
+        "meter: the frame's squares light up - the row by direction, the column by height.",
     };
     static const char* sphere2[] = {
-        "yellow button: store the scene as a snapshot (a reel).",
+        "yellow button: store the scene as a snapshot (a reel): sounds, motions, speeds,",
+        "and the rails and scene turn too - so the timeline sequences all of it.",
         "drag a reel onto the timeline; drag segments to move, their right end",
         "to scale, alt-drag to copy, drag away to delete. reels back to the play area.",
         "wheel: length of the piece, 1 - 30 min. (shift-drag: segments keep their times).",
         "mouse wheel / pinch on the timeline zooms, sideways scrolls, double-click: all.",
         "red flag: click to play / stop, drag to set the start. playing locks the rest.",
         "output: Ambisonics, ACN / SN3D (AmbiX), 1st - 7th order (numbers top right).",
-        "put a decoder or binaural plug-in after it (IEM, SPARTA, ...).",
-        "a stereo track or the desktop app hears a stereo preview.",
+        "put a decoder or binaural plug-in after it (IEM, SPARTA, ...); a stereo track",
+        "or the desktop app hears a stereo preview.",
         "render (tools): writes an AmbiX WAV of the timeline at the chosen order.",
         "MIDI: C1-G1 presets, G#1 A1 operators, A#1 snapshot, B1 timeline, C2.. cells.",
     };
@@ -1333,8 +1601,20 @@ void OpEditor::mouseDown (const juce::MouseEvent& e)
                 prm->setValueNotifyingHost (prm->convertTo0to1 ((float) k));
             return;
         }
+    for (int k = 0; k < kDistParams; ++k)
+        if (distRect (k).expanded (4, 2).contains (p))
+        {
+            drag = Drag::Dist; dragIndex = k;
+            if (auto* prm = proc.params.getParameter (kDistIds[k]))
+            {
+                prm->beginChangeGesture();
+                const auto r = distRect (k);
+                prm->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, (p.x - r.getX()) / r.getWidth()));
+            }
+            return;
+        }
     for (int i = 0; i < motion::Count; ++i)
-        if (motionRect (i).withWidth (58).withHeight (36).contains (p))
+        if (motionRect (i).contains (p))
         {
             if (! editable) { locked(); return; }
             drag = Drag::Motion; dragIndex = i; return;
@@ -1346,9 +1626,18 @@ void OpEditor::mouseDown (const juce::MouseEvent& e)
     }
     if (planCentre().getDistanceFrom (p) < kPlanR + 10)
     {
-        if (! editable) { locked(); return; }
+        if (! editable) { drag = Drag::GlobeTurn; dragYaw = viewYaw; dragPitch = viewPitch; return; }
         const int id = planItemAt (p);
-        if (id >= 0) { drag = Drag::Plan; dragIndex = id; selectedItem = id; selectedCell = -1; }
+        if (id >= 0) { drag = Drag::Plan; dragIndex = id; selectedItem = id; selectedCell = -1; return; }
+        // empty globe: drag turns the view; shift-drag turns the scene itself (what you hear)
+        if (e.mods.isShiftDown())
+        {
+            drag = Drag::SceneTurn;
+            for (auto* id2 : { "yaw", "pitch" }) if (auto* prm = proc.params.getParameter (id2)) prm->beginChangeGesture();
+            dragYaw = proc.params.getRawParameterValue ("yaw")->load();
+            dragPitch = proc.params.getRawParameterValue ("pitch")->load();
+        }
+        else { drag = Drag::GlobeTurn; dragYaw = viewYaw; dragPitch = viewPitch; }
         return;
     }
    #endif
@@ -1438,7 +1727,7 @@ void OpEditor::mouseDrag (const juce::MouseEvent& e)
                        #if OP_SPATIAL
                         // a moving sound: put its resting place where it would have to be to be here now
                         float mx, my;
-                        space::moved (*i, mt, mx, my);
+                        { float md; movedNow (*i, mt, mx, my, md); }
                         float dx = mx - i->x;
                         dx -= std::round (dx);
                         x -= dx; x -= std::floor (x);
@@ -1455,25 +1744,65 @@ void OpEditor::mouseDrag (const juce::MouseEvent& e)
        #if OP_SPATIAL
         case Drag::Plan:
         {
-            // from above: the angle is the direction, the distance from you the distance
-            const Pt v = p - planCentre();
-            const float az = std::atan2 (-v.x, -v.y);
-            const float d = juce::jlimit (0.0f, 1.0f, (v.getDistanceFromOrigin() / kPlanR - 0.08f) / 0.92f);
+            const Pt v = (p - planCentre()) / kPlanR;
             const double mt = motionT;
+            const bool top = globeAtTop();
+            const float vy = viewYaw, vp = viewPitch;
             proc.edit ([&] (Model& m) {
-                if (auto* i = m.findItem (dragIndex))
+                auto* i = m.findItem (dragIndex);
+                if (i == nullptr) return;
+                float mx, my, md;
+                movedNow (*i, mt, mx, my, md);
+                float dx = mx - i->x;
+                dx -= std::round (dx);
+                if (top)
                 {
-                    float mx, my;
-                    space::moved (*i, mt, mx, my);
-                    float dx = mx - i->x;
-                    dx -= std::round (dx);
+                    // from above: the angle is the direction, the distance from you the distance
+                    const float az = std::atan2 (v.x * -1.0f, -v.y);
                     float x = space::xForAzimuth (az) - dx;
                     i->x = x - std::floor (x);
-                    i->d = d;
+                    i->d = juce::jlimit (0.0f, 1.0f, (v.getDistanceFromOrigin() - 0.08f) / 0.92f);
+                    return;
                 }
+                // turned: move it over its own shell (same distance), on the side facing you
+                const float r = 0.08f + 0.92f * md;
+                const float sx = v.x, sy2 = -v.y;
+                const float l2 = sx * sx + sy2 * sy2;
+                const float k = l2 > r * r ? r / std::sqrt (l2) : 1.0f;
+                const float ux = sx * k, uy = sy2 * k, uz = std::sqrt (juce::jmax (0.0f, r * r - ux * ux - uy * uy));
+                const float cp = std::cos (vp), spi = std::sin (vp);
+                const float syy = uy * cp + uz * spi, sz = -uy * spi + uz * cp;
+                const float x1 = syy, y1 = -ux;
+                const float cy = std::cos (vy), sy = std::sin (vy);
+                const float wx = x1 * cy + y1 * sy, wy = -x1 * sy + y1 * cy, wz = sz;
+                const float az = std::atan2 (wy, wx);
+                const float el = std::asin (juce::jlimit (-1.0f, 1.0f, wz / r)) * 180.0f / kPi;
+                float x = space::xForAzimuth (az) - dx;
+                i->x = x - std::floor (x);
+                i->y = juce::jlimit (0.0f, 1.0f, space::yForElevationDeg (el) - (my - i->y));
             });
             break;
         }
+        case Drag::GlobeTurn:
+            viewYaw = dragYaw + (p.x - downPt.x) * 0.012f;
+            viewPitch = juce::jlimit (-kPi * 0.5f, kPi * 0.5f, dragPitch - (p.y - downPt.y) * 0.012f);
+            break;
+        case Drag::SceneTurn:
+        {
+            float yaw = dragYaw + (p.x - downPt.x) * 0.9f;
+            yaw -= 360.0f * std::round (yaw / 360.0f);
+            const float pitch = juce::jlimit (-90.0f, 90.0f, dragPitch - (p.y - downPt.y) * 0.6f);
+            if (auto* prm = proc.params.getParameter ("yaw")) prm->setValueNotifyingHost (prm->convertTo0to1 (yaw));
+            if (auto* prm = proc.params.getParameter ("pitch")) prm->setValueNotifyingHost (prm->convertTo0to1 (pitch));
+            break;
+        }
+        case Drag::Dist:
+            if (auto* prm = proc.params.getParameter (kDistIds[dragIndex]))
+            {
+                const auto r = distRect (dragIndex);
+                prm->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, (p.x - r.getX()) / r.getWidth()));
+            }
+            break;
         case Drag::Live:
             break;
        #endif
@@ -1591,7 +1920,20 @@ void OpEditor::mouseUp (const juce::MouseEvent& e)
                 if (const int id = itemAt (p); id >= 0)
                 {
                     const int mo = dragIndex;
-                    proc.edit ([&] (Model& m) { if (auto* i = m.findItem (id)) i->motion = (i->motion == mo ? motion::None : mo); });
+                    const double now = motionT;
+                    const float seed = rng.nextFloat();
+                    proc.edit ([&] (Model& m) {
+                        if (auto* i = m.findItem (id))
+                        {
+                            // its own copy of the motion, starting now from where the sound is
+                            float mx, my, md;
+                            movedNow (*i, now, mx, my, md);
+                            i->x = mx; i->y = my; i->d = md;
+                            i->motion = (i->motion == mo ? motion::None : mo);
+                            i->motionStart = now;
+                            i->mseed = seed;
+                        }
+                    });
                 }
             break;
         case Drag::AttachedMotion:
@@ -1602,7 +1944,11 @@ void OpEditor::mouseUp (const juce::MouseEvent& e)
                     proc.edit ([&] (Model& m) {
                         auto* from = m.findItem (dragIndex);
                         if (from == nullptr) return;
-                        if (auto* to = m.findItem (target)) to->motion = from->motion;
+                        if (auto* to = m.findItem (target))
+                        {
+                            to->motion = from->motion; to->mrate = from->mrate;
+                            to->motionStart = motionT; to->mseed = rng.nextFloat();
+                        }
                         from->motion = motion::None;
                     });
             }
@@ -1660,6 +2006,14 @@ void OpEditor::mouseUp (const juce::MouseEvent& e)
         case Drag::Flag:
             if (! moved) proc.toggleTimeline();
             break;
+       #if OP_SPATIAL
+        case Drag::Dist:
+            if (auto* prm = proc.params.getParameter (kDistIds[dragIndex])) prm->endChangeGesture();
+            break;
+        case Drag::SceneTurn:
+            for (auto* id2 : { "yaw", "pitch" }) if (auto* prm = proc.params.getParameter (id2)) prm->endChangeGesture();
+            break;
+       #endif
         default: break;
     }
     drag = Drag::None;
@@ -1683,6 +2037,26 @@ void OpEditor::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheel
    #if OP_SPATIAL
     if (! playing && (mixRect().contains (p) || planCentre().getDistanceFrom (p) < kPlanR + 10))
     {
+        for (auto& it : cur.mix)
+            if (it.motion != motion::None && attachedMotionRect (it.id, it).expanded (3).contains (p))
+            {
+                noteInput();
+                const float dy = w.isReversed ? -w.deltaY : w.deltaY;
+                const int iid = it.id;
+                const double now = motionT;
+                proc.edit ([&] (Model& m) {
+                    if (auto* i = m.findItem (iid))
+                    {
+                        // keep it where it is: restart its motion from here at the new speed
+                        float mx, my, md;
+                        movedNow (*i, now, mx, my, md);
+                        i->x = mx; i->y = my; i->d = md; i->motionStart = now;
+                        i->mrate = juce::jlimit (0.25f, 4.0f, i->mrate * std::exp (dy * 1.2f));
+                    }
+                });
+                selectedItem = iid;
+                return;
+            }
         const int id = mixRect().contains (p) ? itemAt (p) : planItemAt (p);
         if (id < 0) return;
         noteInput();
@@ -1715,6 +2089,23 @@ void OpEditor::mouseMagnify (const juce::MouseEvent& e, float k)
 void OpEditor::mouseDoubleClick (const juce::MouseEvent& e)
 {
     const Pt p = toCanvas (e.position);
+   #if OP_SPATIAL
+    for (int k = 0; k < kDistParams; ++k)
+        if (distRect (k).expanded (4, 2).contains (p))
+            if (auto* prm = proc.params.getParameter (kDistIds[k]))
+            {
+                prm->setValueNotifyingHost (prm->getDefaultValue());
+                return;
+            }
+    if (planCentre().getDistanceFrom (p) < kPlanR + 10 && planItemAt (p) < 0)
+    {
+        if (e.mods.isShiftDown())
+            for (auto* id2 : { "yaw", "pitch" })
+                if (auto* prm = proc.params.getParameter (id2)) prm->setValueNotifyingHost (prm->getDefaultValue());
+        viewYaw = viewPitch = 0.0f;
+        return;
+    }
+   #endif
     if (! timelineZone().contains (p) || flagRect().contains (p)) return;
     for (auto& s : cur.segs) if (segRect (s).expanded (3, 2).contains (p)) return;
     // on the bare timeline: zoom in 4x there, or back out to the whole piece

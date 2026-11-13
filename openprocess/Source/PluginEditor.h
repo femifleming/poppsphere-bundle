@@ -37,6 +37,7 @@ public:
     void startDemo();
     void tick() { timerCallback(); }
     void selectItem (int id) { selectedItem = id; }
+    void setGlobeView (float yaw, float pitch) { viewYaw = yaw; viewPitch = pitch; }
     void setTimelineView (float start, float len) { viewStart = start; viewLen = len; clampView(); }
 
 private:
@@ -69,7 +70,18 @@ private:
     // opensphere
     static Pt planCentre() { return { 146, 114 }; }
     static constexpr float kPlanR = 84.0f;
-    static Rect motionRect (int i) { return { 616.0f + i * 66.0f, 30, 62, 50 }; }
+    static Rect motionRect (int i) { return { 598.0f + (i % 6) * 44.0f, 16.0f + (i / 6) * 52.0f, 42, 30 }; }
+    static Rect distRect (int k) { return { 868.0f, 12.0f + k * 22.0f, 122, 21 }; }   // label + rail
+    static constexpr int kDistParams = 6;
+    struct Proj { Pt p; float depth; };
+    Proj project (float x, float y, float z) const;      // the globe: world (x front, y left, z up) -> screen
+    bool globeAtTop() const { return std::abs (viewYaw) < 0.001f && std::abs (viewPitch) < 0.001f; }
+    double tauOf (const Item& i) const { return motionT - i.motionStart; }
+    void movedNow (const Item&, double clock, float& x, float& y, float& d) const;   // incl. the flock
+    void posOf (const Item&, float& x, float& y, float& d) const;
+    SpaceParams shownSpace() const;
+    void drawDistance (juce::Graphics&);
+    void drawMeter (juce::Graphics&);
     static Rect liveRect() { return { 512, 30, 26, 26 }; }
     static Rect orderRect (int k) { return { 857.0f + k * 19.0f, 168, 16, 16 }; }
     static float metres (float d) { return 0.25f + 19.75f * d * d; }
@@ -134,6 +146,12 @@ private:
     bool playing = false;
     double tlSeconds = 0;
     double motionT = 0;
+    float viewYaw = 0.0f, viewPitch = 0.0f;           // how the globe is turned (the view only)
+    float dragYaw = 0.0f, dragPitch = 0.0f;
+    std::array<float, 28> lvAz = filled<28> (-100.0f);
+    std::array<float, 10> lvEl = filled<10> (-100.0f);
+    template <size_t N> static std::array<float, N> filled (float v) { std::array<float, N> a; a.fill (v); return a; }
+    float lvPeak = -100.0f;
     int ambiOrder = 0;
     float inLevel = 0;
     float viewStart = 0.0f, viewLen = 1.0f;
@@ -153,7 +171,7 @@ private:
     int dropCell = -2;                // file drag hover: -1 browser, >=0 cell
     float presetFlash[8] {}, opFlash[2] {}, snapFlash = 0;
 
-    enum class Drag { None, Cell, Item, LoopS, LoopE, Effect, AttachedFx, Reel, Seg, SegResize, Flag, Wheel, View, Motion, AttachedMotion, Plan, Live };
+    enum class Drag { None, Cell, Item, LoopS, LoopE, Effect, AttachedFx, Reel, Seg, SegResize, Flag, Wheel, View, Motion, AttachedMotion, Plan, Live, GlobeTurn, SceneTurn, Dist };
     Drag drag = Drag::None;
     int dragIndex = -1;
     Pt downPt, curPt, grabOffset;

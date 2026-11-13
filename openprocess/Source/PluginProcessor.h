@@ -45,6 +45,11 @@ public:
     double motionTime() const { return motionNow.load(); }      // the clock the motions run on
     int ambisonicOrder() const { return orderNow.load(); }      // 0 = stereo preview
     float inputLevel() const { return inPeak.load(); }
+    SpaceParams readSpace() const;
+    bool boidPos (int voiceId, float& x, float& y, float& d) const;   // where a bird of the flock is now
+    // the spatial meter: energy (mean square) by azimuth / elevation bin
+    float meterAz (int b) const { return engine.meterAz[(size_t) b].load (std::memory_order_relaxed); }
+    float meterEl (int b) const { return engine.meterEl[(size_t) b].load (std::memory_order_relaxed); }
     // pointer position of a playing voice (0..1), or -1
     float voiceFrac (int voiceId) const;
 
@@ -108,6 +113,8 @@ private:
     std::atomic<double> motionNow { 0.0 };
     std::atomic<int> orderNow { 0 };
     std::atomic<float> inPeak { 0.0f };
+    Flock flock, flockShown;
+    mutable juce::SpinLock flockLock;
 
     // input capture ring, last 8 seconds
     juce::AudioBuffer<float> ring;

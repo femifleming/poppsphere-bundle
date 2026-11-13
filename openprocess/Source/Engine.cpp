@@ -30,6 +30,8 @@ static float effectEnv (int fxType, float prog)
 void Engine::process (const Output& out, int n, const VoiceSpec* specs, int numSpecs, const float* inL, const float* inR)
 {
     for (auto& s : slots) s.used = false;
+    accAz.fill (0.0f);
+    accEl.fill (0.0f);
 
     for (int k = 0; k < numSpecs; ++k)
     {
@@ -56,7 +58,8 @@ void Engine::process (const Output& out, int n, const VoiceSpec* specs, int numS
         slot->tgtL = v.gain * juce::jmin (1.0f, 2.0f * (1.0f - pan));
         slot->tgtR = v.gain * juce::jmin (1.0f, 2.0f * pan);
         slot->az = v.az; slot->el = v.el; slot->dist = v.dist; slot->gain = v.gain;
-        if (fresh) { slot->gL = 0; slot->gR = 0; slot->air = 1.0f; }
+        slot->air = v.air; slot->spread = v.spread; slot->blur = v.blur; slot->nearR = v.nearR;
+        if (fresh) { slot->gL = 0; slot->gR = 0; }
         slot->used = true;
     }
 
@@ -78,6 +81,11 @@ void Engine::process (const Output& out, int n, const VoiceSpec* specs, int numS
             sl.id = -1;
             pub[(size_t) si].id.store (-1, std::memory_order_relaxed);
         }
+    }
+    if (out.order >= 0)
+    {
+        for (int b = 0; b < kAzBins; ++b) meterAz[(size_t) b].store (accAz[(size_t) b], std::memory_order_relaxed);
+        for (int b = 0; b < kElBins; ++b) meterEl[(size_t) b].store (accEl[(size_t) b], std::memory_order_relaxed);
     }
 }
 
@@ -155,8 +163,10 @@ void Engine::render (Slot& sl, int si, const Output& out, int off, int n, const 
     }
 
     // 2b. opensphere: air (far sounds lose their top), then encode both channels, spread by distance
+    SpaceParams sp;
+    sp.air = sl.air; sp.spread = sl.spread; sp.blur = sl.blur; sp.nearR = sl.nearR;
     const float d = juce::jlimit (0.0f, 1.0f, sl.dist);
-    const float cutoff = 18000.0f * std::pow (3500.0f / 18000.0f, d * d);
+    const float cutoff = 18000.0f * std::pow (3500.0f / 18000.0f, d * d * sp.air * 2.0f);
     const float kAir = 1.0f - std::exp (-2.0f * juce::MathConstants<float>::pi * juce::jmin (cutoff, (float) sr * 0.45f) / (float) sr);
     for (int i = 0; i < n; ++i)
     {
@@ -168,11 +178,12 @@ void Engine::render (Slot& sl, int si, const Output& out, int off, int n, const 
 
     const int order = juce::jlimit (0, ambi::kMaxOrder, out.order);
     const int nch = juce::jmin (out.numCh, ambi::chFor (order));
-    const float half = space::width (d) * 0.5f;
+    const float half = space::width (d, sp) * 0.5f;
     const auto yL = ambi::sh (sl.az + half, sl.el, order);
     const auto yR = ambi::sh (sl.az - half, sl.el, order);
-    // very near: the higher orders fade, so the sound is all around (inside your head at 0)
-    const float nearK = juce::jlimit (0.0f, 1.0f, d / 0.12f);
+    // very near: the higher orders fade, so the sound is all around (inside your head at 0);
+    // blur: far sounds lose their sharpness the same way
+    const float nearK = juce::jlimit (0.0f, 1.0f, d / juce::jmax (0.001f, sp.nearR)) * (1.0f - 0.85f * sp.blur * d);
     const float g = sl.gain * 0.7071f;
     const float a = kBlock * (float) n / (float) kSub;
     float wl = 1.0f;
@@ -195,9 +206,38 @@ void Engine::render (Slot& sl, int si, const Output& out, int off, int n, const 
         sl.cL[(size_t) c] = c1L;
         sl.cR[(size_t) c] = c1R;
     }
+
+    // the meter: this voice's energy, spread over the direction bins round its place
+    if (sl.gain > 0.0f)
+    {
+        float e = 0.0f;
+        for (int i = 0; i < n; ++i) e += tmpL[(size_t) i] * tmpL[(size_t) i] + tmpR[(size_t) i] * tmpR[(size_t) i];
+        e = e / (2.0f * (float) n) * sl.gain * sl.gain;
+        if (e > 1.0e-12f)
+        {
+            const float xs = space::xForAzimuth (sl.az);
+            const float ys = (sl.el * 180.0f / juce::MathConstants<float>::pi - space::kElLow) / (space::kElHigh - space::kElLow);
+            const float sx = 0.012f + 0.5f * half / (2.0f * juce::MathConstants<float>::pi) + 0.06f * (1.0f - nearK);
+            const float sy = 0.035f + 0.15f * (1.0f - nearK);
+            float wa[kAzBins], we[kElBins], sa = 0, se = 0;
+            for (int b = 0; b < kAzBins; ++b)
+            {
+                float dx = (b + 0.5f) / kAzBins - xs;
+                dx -= std::round (dx);
+                wa[b] = std::exp (-(dx * dx) / (sx * sx)); sa += wa[b];
+            }
+            for (int b = 0; b < kElBins; ++b)
+            {
+                const float dy = (b + 0.5f) / kElBins - ys;
+                we[b] = std::exp (-(dy * dy) / (sy * sy)); se += we[b];
+            }
+            for (int b = 0; b < kAzBins; ++b) accAz[(size_t) b] += e * wa[b] / sa * (float) n / (float) kSub;
+            for (int b = 0; b < kElBins; ++b) accEl[(size_t) b] += e * we[b] / se * (float) n / (float) kSub;
+        }
+    }
 }
 
-VoiceSpec Engine::specFor (const Item& i, const CellArray& cells, double t)
+VoiceSpec Engine::specFor (const Item& i, const CellArray& cells, double tau, const SpaceParams& sp)
 {
     VoiceSpec v;
     v.id = i.id;
@@ -205,22 +245,48 @@ VoiceSpec Engine::specFor (const Item& i, const CellArray& cells, double t)
     v.snd = v.live ? nullptr : cells[(size_t) juce::jlimit (0, bank::kCells - 1, i.cell)].get();
     v.s = i.s; v.e = i.e; v.effect = i.effect;
    #if OP_SPATIAL
-    float x, y;
-    space::moved (i, t, x, y);
+    float x, y, d;
+    space::moved (i, tau, x, y, d);
+    if (i.motion == motion::Boids && sp.flock != nullptr)
+        if (auto* b = sp.flock->find (i.id)) { x = b->x; y = b->y; d = b->d; }
+    v.air = sp.air; v.spread = sp.spread; v.blur = sp.blur; v.nearR = sp.nearR;
     v.az = space::azimuth (x);
     v.el = space::elevation (y);
-    v.dist = i.d;
-    v.gain = space::distanceGain (i.d);
+    space::rotate (v.az, v.el, sp);
+    v.dist = d;
+    v.gain = space::distanceGain (d, sp);
     v.pan = 0.5f;
    #else
-    juce::ignoreUnused (t);
+    juce::ignoreUnused (tau, sp);
     v.pan = i.x;
     v.gain = volumeGain (i.y);
    #endif
     return v;
 }
 
-int Engine::buildMix (const Model& m, const CellArray& cells, double t, VoiceSpec* out, int max)
+void Engine::feedFlock (Flock& f, const Model& m, bool timeline, double t, float dt, const SpaceParams& sp)
+{
+    f.begin();
+    auto add = [&] (const Item& i, int id) {
+        if (i.motion == motion::Boids) f.add (id, i.x, i.y, i.d, i.mrate * (0.85f + 0.3f * i.mseed));
+    };
+    float speed = sp.mspeed;
+    if (timeline)
+    {
+        const double L = m.minutes * 60.0;
+        for (auto& seg : m.segs)
+            if (t >= seg.start * L && t < (seg.start + seg.len) * L)
+            {
+                for (size_t k = 0; k < seg.snap.items.size(); ++k) add (seg.snap.items[k], timelineVoiceId (seg.id, (int) k));
+                if (seg.snap.hasSpace) speed = seg.snap.space.mspeed;
+            }
+    }
+    else
+        for (auto& i : m.mix) add (i, i.id);
+    f.step (dt * speed);
+}
+
+int Engine::buildMix (const Model& m, const CellArray& cells, double t, VoiceSpec* out, int max, const SpaceParams& sp)
 {
     bool anySolo = false;
     for (auto& i : m.mix) anySolo |= i.effect == fx::Solo;
@@ -228,7 +294,7 @@ int Engine::buildMix (const Model& m, const CellArray& cells, double t, VoiceSpe
     for (auto& i : m.mix)
     {
         if (n >= max) break;
-        VoiceSpec v = specFor (i, cells, t);
+        VoiceSpec v = specFor (i, cells, t - i.motionStart, sp);
         if (v.snd == nullptr && ! v.live) continue;
         if (i.effect == fx::Mute || (anySolo && i.effect != fx::Solo)) v.gain = 0;
         out[n++] = v;
@@ -236,7 +302,7 @@ int Engine::buildMix (const Model& m, const CellArray& cells, double t, VoiceSpe
     return n;
 }
 
-int Engine::buildTimeline (const Model& m, const CellArray& cells, double t, VoiceSpec* out, int max)
+int Engine::buildTimeline (const Model& m, const CellArray& cells, double t, VoiceSpec* out, int max, const SpaceParams& sp)
 {
     const double L = m.minutes * 60.0;
     int n = 0;
@@ -247,12 +313,15 @@ int Engine::buildTimeline (const Model& m, const CellArray& cells, double t, Voi
         const float edge = (float) juce::jmin (1.0, (t - t0) / 0.03, (t1 - t) / 0.03);
         bool anySolo = false;
         for (auto& i : seg.snap.items) anySolo |= i.effect == fx::Solo;
+        // a snapshot taken in opensphere brings its own motion speed, distance settings and scene turn
+        SpaceParams ssp = seg.snap.hasSpace ? seg.snap.space : sp;
+        ssp.flock = sp.flock;
         for (size_t k = 0; k < seg.snap.items.size() && n < max; ++k)
         {
-            const auto& i = seg.snap.items[k];
-            VoiceSpec v = specFor (i, cells, t);
+            Item i = seg.snap.items[k];
+            i.id = timelineVoiceId (seg.id, (int) k);
+            VoiceSpec v = specFor (i, cells, (t - t0) * ssp.mspeed, ssp);   // motions start with the segment
             if (v.snd == nullptr && ! v.live) continue;
-            v.id = timelineVoiceId (seg.id, (int) k);
             v.gain *= edge;
             if (i.effect == fx::Mute || (anySolo && i.effect != fx::Solo)) v.gain = 0;
             out[n++] = v;

@@ -20,6 +20,7 @@ struct VoiceSpec
     float s = 0, e = 1;
     float gain = 1, pan = 0.5f;
     float az = 0, el = 0, dist = 0.3f;   // opensphere
+    float air = 0.5f, spread = 0.5f, blur = 0.0f, nearR = 0.12f;   // its distance settings (its segment's, on the timeline)
     int effect = fx::None;
 };
 
@@ -37,7 +38,13 @@ public:
         float* const* ch = nullptr;
         int numCh = 2;
         int order = -1;               // -1: plain stereo (left / right pan); 0..7: Ambisonics ACN/SN3D
+        const SpaceParams* space = nullptr;
     };
+
+    // opensphere's spatial meter: energy by direction, published every block
+    static constexpr int kAzBins = 28, kElBins = 10;
+    std::array<std::atomic<float>, kAzBins> meterAz {};
+    std::array<std::atomic<float>, kElBins> meterEl {};
 
     void prepare (double sampleRate);
     void reset();
@@ -51,10 +58,13 @@ public:
     }
 
     // voice specs for what should sound now; t is the time for the motions (and the timeline position)
-    static int buildMix (const Model&, const CellArray&, double t, VoiceSpec* out, int max);
-    static int buildTimeline (const Model&, const CellArray&, double tlSeconds, VoiceSpec* out, int max);
+    // (clock: the motion clock; each sound's motion runs from when it was put on)
+    static int buildMix (const Model&, const CellArray&, double clock, VoiceSpec* out, int max, const SpaceParams& = {});
+    static int buildTimeline (const Model&, const CellArray&, double tlSeconds, VoiceSpec* out, int max, const SpaceParams& = {});
     static int timelineVoiceId (int segId, int itemIndex) { return 1000000 + segId * 256 + itemIndex; }
-    static VoiceSpec specFor (const Item&, const CellArray&, double t);
+    // the boids: gather this moment's birds and move the flock on by dt seconds
+    static void feedFlock (Flock&, const Model&, bool timeline, double t, float dt, const SpaceParams&);
+    static VoiceSpec specFor (const Item&, const CellArray&, double tau, const SpaceParams&);
 
     // published for the editor (pointer positions)
     struct Pub { std::atomic<int> id { -1 }; std::atomic<float> frac { 0 }; };
@@ -70,8 +80,9 @@ private:
         float s = 0, e = 1;
         float tgtL = 0, tgtR = 0, gL = 0, gR = 0, env = 0;
         float az = 0, el = 0, dist = 0.3f, gain = 0;
+        float air = 0.5f, spread = 0.5f, blur = 0.0f, nearR = 0.12f;
         ambi::Coefs cL {}, cR {};       // current encoding of the left / right channel
-        float air = 1.0f, lpL = 0, lpR = 0;
+        float lpL = 0, lpR = 0;
         int effect = fx::None;
         bool used = false;
     };
@@ -79,6 +90,8 @@ private:
 
     std::array<Slot, kSlots> slots;
     std::array<float, kSub> tmpL {}, tmpR {};
+    std::array<float, kAzBins> accAz {};
+    std::array<float, kElBins> accEl {};
     double sr = 44100.0;
     float kGain = 0.01f, kEnv = 0.05f, kBlock = 0.2f;
 };

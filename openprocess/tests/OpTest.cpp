@@ -217,6 +217,63 @@ int main (int argc, char** argv)
             space::moved (o, 0.0, x0, y0);
             space::moved (o, 6.0, x1, y1);
             CHECK (std::abs (x1 - x0) > 0.2f, "orbit turns the sound round you");
+
+            // every motion starts where the sound is, and moves
+            bool startsInPlace = true, allMove = true;
+            for (int mo = 0; mo < motion::Count; ++mo)
+            {
+                if (mo == motion::Boids) continue;
+                Item it; it.id = 7; it.x = 0.4f; it.y = 0.4f; it.d = 0.5f; it.motion = mo; it.mseed = 0.3f;
+                float ax, ay, ad, bx, by, bd;
+                space::moved (it, 0.0, ax, ay, ad);
+                startsInPlace &= std::abs (ax - 0.4f) < 1e-3f && std::abs (ay - 0.4f) < 1e-3f && std::abs (ad - 0.5f) < 1e-3f;
+                float maxMove = 0;
+                for (double tt = 0.5; tt < 20.0; tt += 0.5)
+                {
+                    space::moved (it, tt, bx, by, bd);
+                    maxMove = std::max (maxMove, std::abs (bx - ax) + std::abs (by - ay) + std::abs (bd - ad));
+                }
+                if (maxMove < 0.01f) { allMove = false; std::printf ("  motion %d does not move\n", mo); }
+            }
+            CHECK (startsInPlace, "every motion starts where the sound was put");
+            CHECK (allMove, "every motion moves the sound");
+            // two sounds with the same motion put on at different times do not move as one
+            Item a1; a1.id = 1; a1.x = 0.5f; a1.motion = motion::Swing; a1.mseed = 0.2f; a1.motionStart = 0;
+            Item a2 = a1; a2.id = 2; a2.mseed = 0.8f; a2.motionStart = 3.0;
+            float p1, q1, p2, q2;
+            space::moved (a1, 5.0 - a1.motionStart, p1, q1);
+            space::moved (a2, 5.0 - a2.motionStart, p2, q2);
+            CHECK (std::abs (p1 - p2) > 0.01f, "each sound runs its own motion");
+            // the flock: birds move, and stay together
+            Flock fl;
+            Model fm;
+            for (int k = 0; k < 6; ++k) { Item it; it.id = 50 + k; it.x = 0.3f + 0.05f * k; it.y = 0.5f; it.d = 0.4f; it.motion = motion::Boids; fm.mix.push_back (it); }
+            for (int k = 0; k < 400; ++k) Engine::feedFlock (fl, fm, false, 0, 0.05f, SpaceParams {});
+            float spreadX = 0, moved = 0;
+            for (auto& it : fm.mix)
+                if (auto* b = fl.find (it.id))
+                {
+                    float dx = b->x - 0.425f; dx -= std::round (dx);
+                    spreadX = std::max (spreadX, std::abs (dx));
+                    float hx = b->x - it.x; hx -= std::round (hx);
+                    moved += std::abs (hx) + std::abs (b->y - it.y);
+                }
+            CHECK (moved > 0.02f && spreadX < 0.45f, "boids fly, and keep together");
+            // distance settings: a steeper rolloff makes far sounds quieter
+            SpaceParams soft, steep; soft.rolloff = 0.1f; steep.rolloff = 0.9f;
+            CHECK (space::distanceGain (0.7f, steep) < 0.5f * space::distanceGain (0.7f, soft), "rolloff sets how fast the level falls");
+            // snapshots keep the global settings
+            Model sm2; Snapshot sn; sn.id = 1; sn.hasSpace = true; sn.space.mspeed = 2.5f; sn.space.yaw = 0.7f; sn.space.blur = 0.4f;
+            Item si; si.id = 2; si.motion = motion::Lorenz; si.mrate = 1.7f; sn.items.push_back (si);
+            sm2.snaps.push_back (sn);
+            const auto sb = Model::fromTree (sm2.toTree());
+            CHECK (sb.snaps.size() == 1 && sb.snaps[0].hasSpace && std::abs (sb.snaps[0].space.mspeed - 2.5f) < 1e-4f
+                   && std::abs (sb.snaps[0].space.yaw - 0.7f) < 1e-4f && sb.snaps[0].items[0].motion == motion::Lorenz
+                   && std::abs (sb.snaps[0].items[0].mrate - 1.7f) < 1e-4f, "snapshots keep motions, speeds and the global settings");
+            // scene turn: a quarter turn moves a sound from the front to the left
+            float taz = 0.0f, tel = 0.0f; SpaceParams rot; rot.yaw = space::kPi * 0.5f;
+            space::rotate (taz, tel, rot);
+            CHECK (std::abs (taz - space::kPi * 0.5f) < 1e-3f, "scene turn rotates the sound field");
         }
        #endif
 
@@ -321,8 +378,9 @@ int main (int argc, char** argv)
                 Segment s; s.id = m.nextId++; s.start = 0.35f; s.len = 0.25f; s.snap = m.snaps.back(); m.segs.push_back (s);
                 m.minutes = 2.5f;
                #if OP_SPATIAL
-                if (m.mix.size() > 1) m.mix[1].motion = motion::Orbit;
-                if (m.mix.size() > 3) m.mix[3].motion = motion::Drift;
+                if (m.mix.size() > 1) { m.mix[1].motion = motion::Lorenz; m.mix[1].mrate = 1.5f; }
+                if (m.mix.size() > 3) m.mix[3].motion = motion::Boids;
+                if (m.mix.size() > 2) m.mix[2].motion = motion::Boids;
                #endif
             });
            #if OP_SPATIAL
@@ -339,6 +397,13 @@ int main (int argc, char** argv)
             shot (*ed, "guide");
             oe->setHelpPage (1); oe->tick();
             shot (*ed, "help1");
+           #if OP_SPATIAL
+            oe->setHelpPage (-1);
+            oe->setGlobeView (0.6f, -0.9f);
+            for (int i = 0; i < 4; ++i) { runProcessor (p, 0.1); oe->tick(); }
+            shot (*ed, "globe");
+            oe->setGlobeView (0.0f, 0.0f);
+           #endif
             oe->setHelpPage (2); oe->tick();
             shot (*ed, "help");
             oe->setHelpPage (-1);

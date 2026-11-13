@@ -26,6 +26,8 @@ juce::ValueTree itemTree (const Item& i)
     t.setProperty ("fx", i.effect, nullptr);
     t.setProperty ("d", i.d, nullptr);
     t.setProperty ("motion", i.motion, nullptr);
+    t.setProperty ("mrate", i.mrate, nullptr);
+    t.setProperty ("mseed", i.mseed, nullptr);
     return t;
 }
 
@@ -41,6 +43,8 @@ Item itemFrom (const juce::ValueTree& t)
     i.effect = juce::jlimit (-1, fx::Count - 1, (int) t.getProperty ("fx", -1));
     i.d = juce::jlimit (0.0f, 1.0f, (float) t.getProperty ("d", 0.3f));
     i.motion = juce::jlimit (-1, motion::Count - 1, (int) t.getProperty ("motion", -1));
+    i.mrate = juce::jlimit (0.25f, 4.0f, (float) t.getProperty ("mrate", 1.0f));
+    i.mseed = juce::jlimit (0.0f, 1.0f, (float) t.getProperty ("mseed", (float) ((i.id * 0.6180339887) - std::floor (i.id * 0.6180339887))));
    #if ! OP_SPATIAL
     if (i.isLive()) i.cell = 0;
    #endif
@@ -53,6 +57,13 @@ juce::ValueTree snapTree (const Snapshot& s)
     t.setProperty ("id", s.id, nullptr);
     t.setProperty ("colour", s.colour, nullptr);
     for (auto& i : s.items) t.appendChild (itemTree (i), nullptr);
+    if (s.hasSpace)
+    {
+        const auto& p = s.space;
+        t.setProperty ("sp", juce::String (p.rolloff) + " " + juce::String (p.air) + " " + juce::String (p.spread) + " "
+                             + juce::String (p.blur) + " " + juce::String (p.nearR) + " " + juce::String (p.yaw) + " "
+                             + juce::String (p.pitch) + " " + juce::String (p.mspeed), nullptr);
+    }
     return t;
 }
 
@@ -62,6 +73,19 @@ Snapshot snapFrom (const juce::ValueTree& t)
     s.id = t.getProperty ("id", 0);
     s.colour = t.getProperty ("colour", 0);
     for (auto c : t) if (c.hasType ("item")) s.items.push_back (itemFrom (c));
+    if (t.hasProperty ("sp"))
+    {
+        juce::StringArray v;
+        v.addTokens (t["sp"].toString(), " ", "");
+        if (v.size() >= 8)
+        {
+            s.hasSpace = true;
+            auto& p = s.space;
+            p.rolloff = v[0].getFloatValue(); p.air = v[1].getFloatValue(); p.spread = v[2].getFloatValue();
+            p.blur = v[3].getFloatValue(); p.nearR = v[4].getFloatValue(); p.yaw = v[5].getFloatValue();
+            p.pitch = v[6].getFloatValue(); p.mspeed = v[7].getFloatValue();
+        }
+    }
     return s;
 }
 } // namespace

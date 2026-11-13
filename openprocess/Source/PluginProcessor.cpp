@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include <optional>
 
 namespace
 {
@@ -13,6 +14,21 @@ juce::AudioProcessorValueTreeState::ParameterLayout layout()
    #if OP_SPATIAL
     p.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "order", 1 }, "Ambisonic Order",
                      juce::StringArray { "1st", "2nd", "3rd", "4th", "5th", "6th", "7th" }, 2));
+    auto pct = [&] (const char* id, const char* name, float def) {
+        p.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { id, 1 }, name, juce::NormalisableRange<float> (0.0f, 1.0f), def));
+    };
+    pct ("rolloff", "Distance Rolloff", 0.5f);
+    pct ("air", "Distance Air", 0.5f);
+    pct ("spread", "Near Spread", 0.5f);
+    pct ("blur", "Distance Blur", 0.0f);
+    p.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { "near", 1 }, "Near Field",
+                     juce::NormalisableRange<float> (0.0f, 0.4f), 0.12f));
+    p.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { "mspeed", 1 }, "Motion Speed",
+                     juce::NormalisableRange<float> (0.1f, 4.0f, 0.0f, 0.43f), 1.0f));
+    p.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { "yaw", 1 }, "Scene Turn",
+                     juce::NormalisableRange<float> (-180.0f, 180.0f), 0.0f));
+    p.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { "pitch", 1 }, "Scene Tilt",
+                     juce::NormalisableRange<float> (-90.0f, 90.0f), 0.0f));
    #endif
     return { p.begin(), p.end() };
 }
@@ -46,6 +62,19 @@ bool writeWav (const juce::File& f, const juce::AudioBuffer<float>& b, double ra
 // Stereo in. openprocess: stereo out. opensphere: Ambisonics out - 3rd order (16 channels) as an
 // Audio Unit, up to 7th (64) elsewhere so a track that wide has room; the order setting says how many
 // are used. The desktop app plays a stereo preview (and renders full Ambisonic files).
+SpaceParams OpProcessor::readSpace() const
+{
+    SpaceParams sp;
+   #if OP_SPATIAL
+    auto v = [&] (const char* id) { return params.getRawParameterValue (id)->load(); };
+    sp.rolloff = v ("rolloff"); sp.air = v ("air"); sp.spread = v ("spread"); sp.blur = v ("blur"); sp.nearR = v ("near");
+    sp.yaw = v ("yaw") * juce::MathConstants<float>::pi / 180.0f;
+    sp.pitch = v ("pitch") * juce::MathConstants<float>::pi / 180.0f;
+    sp.mspeed = v ("mspeed");
+   #endif
+    return sp;
+}
+
 juce::AudioProcessor::BusesProperties OpProcessor::buses()
 {
    #if OP_SPATIAL
@@ -70,6 +99,7 @@ OpProcessor::OpProcessor()
 {
     formats.registerBasicFormats();
     specs.resize (Engine::kMaxSpecs);
+    space::lorenzTable();
     rebuildAll();
     startTimerHz (30);
 }
@@ -145,19 +175,25 @@ void OpProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuff
 
     const bool playing = timelinePlayingFlag.load();
     double tlLength = 60.0, startAt = 0.0;
+    SpaceParams sp = readSpace();
+    sp.flock = &flock;
     {
         const juce::SpinLock::ScopedTryLockType tl (lock);
         if (tl.isLocked())
         {
             tlLength = model.minutes * 60.0;
             startAt = model.playStart * tlLength;
+            if (playing && ! wasPlaying) tlTime = startAt;
+           #if OP_SPATIAL
+            Engine::feedFlock (flock, model, playing, tlTime, (float) (n / hostRate), sp);
+            if (const juce::SpinLock::ScopedTryLockType fl (flockLock); fl.isLocked()) flockShown = flock;
+           #endif
             if (playing)
             {
-                if (! wasPlaying) tlTime = startAt;
-                numSpecs = Engine::buildTimeline (model, cells, tlTime, specs.data(), (int) specs.size());
+                numSpecs = Engine::buildTimeline (model, cells, tlTime, specs.data(), (int) specs.size(), sp);
             }
             else
-                numSpecs = Engine::buildMix (model, cells, motionClock, specs.data(), (int) specs.size());
+                numSpecs = Engine::buildMix (model, cells, motionClock, specs.data(), (int) specs.size(), sp);
         }
         else if (playing && ! wasPlaying)
             tlTime = startAt;
@@ -183,7 +219,7 @@ void OpProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuff
         const int nch = juce::jmin (numOut, ambi::kCh);
         const int order = juce::jmin (wanted, ambi::orderFor (nch));
         out.clear();
-        engine.process (Engine::Output { out.getArrayOfWritePointers(), nch, order }, n, specs.data(), numSpecs, liveL, liveR);
+        engine.process (Engine::Output { out.getArrayOfWritePointers(), nch, order, &sp }, n, specs.data(), numSpecs, liveL, liveR);
         for (int c = 0; c < ambi::chFor (order); ++c)
         {
             float* d = out.getWritePointer (c);
@@ -196,7 +232,7 @@ void OpProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuff
         // stereo: encode at 1st order and fold to left / right (W + Y, W - Y) so there is something to hear
         if (fold.getNumSamples() < n) fold.setSize (4, n, false, false, true);
         fold.clear();
-        engine.process (Engine::Output { fold.getArrayOfWritePointers(), 4, 1 }, n, specs.data(), numSpecs, liveL, liveR);
+        engine.process (Engine::Output { fold.getArrayOfWritePointers(), 4, 1, &sp }, n, specs.data(), numSpecs, liveL, liveR);
         const float* w = fold.getReadPointer (0);
         const float* y = fold.getReadPointer (1);
         for (int ch = 0; ch < numOut; ++ch)
@@ -229,7 +265,7 @@ void OpProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuff
         if (tlTime >= tlLength) tlTime = juce::jmin (startAt, tlLength - 0.01);
         tlPos = tlTime;
     }
-    motionClock += n / hostRate;
+    motionClock += n / hostRate * sp.mspeed;   // the speed setting runs the clock, so changing it never jumps
     if (motionClock > 86400.0) motionClock = 0.0;
     wasPlaying = playing;
 }
@@ -290,6 +326,8 @@ void OpProcessor::applyPreset (int k, bool additive)
         i.y = space::yForElevationDeg (-15.0f + 55.0f * rng.nextFloat());
         i.d = 0.12f + 0.6f * rng.nextFloat();
         i.motion = rng.nextFloat() < 0.3f ? rng.nextInt (motion::Count) : motion::None;
+        i.motionStart = motionNow.load();
+        i.mseed = rng.nextFloat();
        #else
         i.x = 0.1f + 0.8f * rng.nextFloat();
         i.y = 0.4f + 0.55f * rng.nextFloat();
@@ -344,6 +382,10 @@ int OpProcessor::takeSnapshot()
             for (auto& o : model.snaps) c = juce::jmax (c, o.colour + 1);
             s.colour = model.snaps.empty() ? 0 : c % 6;
             s.items = model.mix;
+           #if OP_SPATIAL
+            s.hasSpace = true;
+            s.space = readSpace();
+           #endif
             model.snaps.push_back (s);
         }
     }
@@ -353,13 +395,38 @@ int OpProcessor::takeSnapshot()
 
 void OpProcessor::loadSnapshot (int snapId)
 {
-    const juce::SpinLock::ScopedLockType sl (lock);
-    for (auto& s : model.snaps)
-        if (s.id == snapId)
-        {
-            model.mix = s.items;
-            for (auto& i : model.mix) i.id = model.nextId++;
-        }
+    std::optional<SpaceParams> restore;
+    {
+        const juce::SpinLock::ScopedLockType sl (lock);
+        for (auto& s : model.snaps)
+            if (s.id == snapId)
+            {
+                model.mix = s.items;
+                for (auto& i : model.mix) { i.id = model.nextId++; i.motionStart = motionNow.load(); }
+                if (s.hasSpace) restore = s.space;
+            }
+    }
+   #if OP_SPATIAL
+    // its global settings come back too
+    if (restore)
+    {
+        const float deg = 180.0f / juce::MathConstants<float>::pi;
+        const std::pair<const char*, float> vals[] = { { "rolloff", restore->rolloff }, { "air", restore->air }, { "spread", restore->spread },
+            { "blur", restore->blur }, { "near", restore->nearR }, { "mspeed", restore->mspeed },
+            { "yaw", restore->yaw * deg }, { "pitch", restore->pitch * deg } };
+        for (auto& v : vals)
+            if (auto* prm = params.getParameter (v.first)) prm->setValueNotifyingHost (prm->convertTo0to1 (v.second));
+    }
+   #else
+    juce::ignoreUnused (restore);
+   #endif
+}
+
+bool OpProcessor::boidPos (int voiceId, float& x, float& y, float& d) const
+{
+    const juce::SpinLock::ScopedLockType fl (flockLock);
+    if (auto* b = flockShown.find (voiceId)) { x = b->x; y = b->y; d = b->d; return true; }
+    return false;
 }
 
 void OpProcessor::toggleTimeline()
@@ -573,9 +640,12 @@ void OpProcessor::renderToFile (const juce::File& file)
    #else
     const int order = -1;
    #endif
+    const SpaceParams sp = readSpace();
+    for (auto& i : m.mix) i.motionStart = 0;   // a render starts every motion from the beginning
+    auto renderFlock = std::make_shared<Flock>();
     ++pending;
     setStatus ("rendering ...");
-    pool.addJob ([this, m, cs, file, master, order]
+    pool.addJob ([this, m, cs, file, master, order, sp, renderFlock]
     {
         // written as it goes (a 30 minute piece in 64 channels would not fit in memory):
         // openprocess 16-bit stereo, opensphere 24-bit AmbiX (ACN / SN3D) at the chosen order
@@ -602,11 +672,16 @@ void OpProcessor::renderToFile (const juce::File& file)
             {
                 const int n = juce::jmin (block, len - k);
                 const double t = start + (double) (pos + k) / rate;
-                const int ns = useTimeline ? Engine::buildTimeline (m, cs, t, vs.data(), (int) vs.size())
-                                           : Engine::buildMix (m, cs, t, vs.data(), (int) vs.size());
+                SpaceParams bsp = sp;
+                bsp.flock = renderFlock.get();
+               #if OP_SPATIAL
+                Engine::feedFlock (*renderFlock, m, useTimeline, t, (float) n / (float) rate, sp);
+               #endif
+                const int ns = useTimeline ? Engine::buildTimeline (m, cs, t, vs.data(), (int) vs.size(), bsp)
+                                           : Engine::buildMix (m, cs, t * sp.mspeed, vs.data(), (int) vs.size(), bsp);
                 float* ptrs[ambi::kCh];
                 for (int c = 0; c < nch; ++c) ptrs[c] = buf.getWritePointer (c, k);
-                e.process (Engine::Output { ptrs, nch, order }, n, vs.data(), ns);
+                e.process (Engine::Output { ptrs, nch, order, &sp }, n, vs.data(), ns);
             }
             for (int c = 0; c < nch; ++c)
             {
