@@ -100,7 +100,8 @@ private:
     Rect barRect (int voiceId, const Item&) const;
     Rect stripRect (int voiceId, const Item&) const;
     Rect attachedFxRect (int voiceId, const Item&) const;
-    Rect freezeRail (const Item&, int k) const;   // the frozen sound's three rails: slide, denoise, again
+    Rect freezeRail (const Item&, int k) const;   // the frozen sound's three rails: slide (scan: speed), denoise, again
+    Rect freezeModeRect (const Item& i) const { const auto r = freezeRail (i, 2); return { r.getRight() + 10, r.getY() + 2, 84, 14 }; }
     Rect flagRect() const;
     Rect segRect (const Segment&) const;
     // timeline zoom: the visible part of the composition, as fractions of its length

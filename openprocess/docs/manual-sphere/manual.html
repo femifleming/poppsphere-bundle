@@ -86,7 +86,7 @@
 <section class="page cover">
   <div class="tri2"></div><div class="tri"></div>
   <div class="word mark"><span class="o">open</span><span class="p">sphere</span></div><br>
-  <span class="sub">manual &nbsp;·&nbsp; version 1.1</span><br>
+  <span class="sub">manual &nbsp;·&nbsp; version 1.2</span><br>
   <span class="sub" style="margin-top:2mm">an ambisonics encoder</span>
   <img class="shot" src="img/guide.png" alt="">
   <div class="meta"><span>vst3 · vst2 · au · lv2 · standalone · macos · windows · linux</span><span>november 2026</span></div>
@@ -537,7 +537,10 @@
       <b>slide</b> (how slowly it glides into a new freeze, up to about 3 s), <b>denoise</b> (quiet frequencies drop
       out, leaving the strongest partials) and <b>again</b> (freeze again by itself every 0.5–20 s; at the left, only when
       you click). Frozen sounds are stored with these settings in snapshots. A freeze on a silent moment is silent:
-      click again.</p>
+      click again.
+      The <b>matrix | scan</b> switch beside the rails picks the kind of freeze. <b>matrix</b> is the one above. <b>scan</b>
+      (after Charles' freeze~) holds the last 1.4 s of frames instead and sweeps back and forth through them; the first
+      rail then sets the <b>speed</b> (1x is as recorded, 0 holds a single frame, up to 2.8x).</p>
       <p>To remove an effect, drag its icon off the sound or drop the same effect on it again. Dropping it on another
       sound moves it there.</p>
     </div>

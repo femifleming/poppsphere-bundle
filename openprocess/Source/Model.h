@@ -24,6 +24,8 @@ struct Item                 // one looping sound in the mix window
     // the freeze effect: slide (glide to a new freeze), denoise, re-freeze every (0 = never); fzGen counts "freeze again"
     float fzSlide = 0.3f, fzDenoise = 0.0f, fzEvery = 0.0f;
     int fzGen = 0;
+    int fzMode = 0;           // 0 matrix (8 frames at random), 1 scan (sweeps through ~1.4 s)
+    float fzScan = 0.6f;      // scan speed
     // opensphere only: x is the direction around you, y the height, d the distance
     float d = 0.3f;         // 0 at your head .. 1 far away
     int motion = motion::None;

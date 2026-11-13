@@ -164,6 +164,19 @@ int main (int argc, char** argv)
             CHECK (fin && frms > 0.005 && fpk < 1.5f, "freeze makes a finite, audible held sound");
             CHECK (hi < 2.5 * lo, "the frozen sound is steady");
             if (renderDir != juce::File()) writeWav (renderDir.getChildFile ("freeze.wav"), fo, 48000);
+            // scan mode: moves through the held stretch, so it is not steady like the matrix, but held and audible
+            fm.mix[0].fzMode = 1; fm.mix[0].fzScan = 0.84f;
+            Engine se2; se2.prepare (48000);
+            juce::AudioBuffer<float> so (2, 48000 * 6); so.clear();
+            for (int pos = 0; pos < so.getNumSamples(); pos += 256)
+            {
+                const int n = juce::jmin (256, so.getNumSamples() - pos);
+                const int nsp = Engine::buildMix (fm, cells, pos / 48000.0, vs.data(), (int) vs.size());
+                se2.process (so.getWritePointer (0, pos), so.getWritePointer (1, pos), n, vs.data(), nsp);
+            }
+            float spk; double srms;
+            CHECK (finiteBuf (so, spk, srms) && srms > 0.005 && spk < 1.5f, "freeze scan mode plays the held stretch");
+            if (renderDir != juce::File()) writeWav (renderDir.getChildFile ("freeze-scan.wav"), so, 48000);
         }
 
         // solo silences the others
@@ -404,7 +417,7 @@ int main (int argc, char** argv)
             p.applyPreset (4, false);
             p.takeSnapshot();
             p.edit ([] (Model& m) {
-                m.mix.front().effect = fx::Freeze;
+                m.mix.front().effect = fx::Freeze; m.mix.front().fzMode = 1;
                 if (m.mix.size() > 2) m.mix[2].effect = fx::Mute;
                 Segment s; s.id = m.nextId++; s.start = 0.35f; s.len = 0.25f; s.snap = m.snaps.back(); m.segs.push_back (s);
                 m.minutes = 2.5f;

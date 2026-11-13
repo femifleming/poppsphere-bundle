@@ -58,6 +58,7 @@ void Engine::process (const Output& out, int n, const VoiceSpec* specs, int numS
         slot->e = v.e;
         slot->effect = v.effect;
         slot->fzSlide = v.fzSlide; slot->fzDenoise = v.fzDenoise; slot->fzEvery = v.fzEvery;
+        slot->fzMode = v.fzMode; slot->fzScan = v.fzScan;
         if (v.effect == fx::Freeze && slot->fz < 0)
             for (int f = 0; f < kFreezers; ++f)
                 if (! freezerUsed[(size_t) f] && freezers[(size_t) f] != nullptr)
@@ -165,7 +166,8 @@ void Engine::render (Slot& sl, int si, const Output& out, int off, int n, const 
     // the freeze effect replaces the voice by its frozen spectrum
     if (sl.fz >= 0)
         freezers[(size_t) sl.fz]->process (tmpL.data(), tmpR.data(), n, sr, sl.fzSlide, sl.fzDenoise,
-                                           sl.fzEvery <= 0.001f ? 0.0f : 0.5f * std::pow (40.0f, sl.fzEvery));
+                                           sl.fzEvery <= 0.001f ? 0.0f : 0.5f * std::pow (40.0f, sl.fzEvery),
+                                           sl.fzMode, sl.fzScan);
 
     // 2a. openprocess: left / right
     if (out.order < 0)
@@ -265,6 +267,7 @@ VoiceSpec Engine::specFor (const Item& i, const CellArray& cells, double tau, co
     v.snd = v.live ? nullptr : cells[(size_t) juce::jlimit (0, bank::kCells - 1, i.cell)].get();
     v.s = i.s; v.e = i.e; v.effect = i.effect;
     v.fzSlide = i.fzSlide; v.fzDenoise = i.fzDenoise; v.fzEvery = i.fzEvery; v.fzGen = i.fzGen;
+    v.fzMode = i.fzMode; v.fzScan = i.fzScan;
    #if OP_SPATIAL
     float x, y, d;
     space::moved (i, tau, x, y, d);

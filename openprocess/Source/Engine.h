@@ -24,8 +24,8 @@ struct VoiceSpec
     float az = 0, el = 0, dist = 0.3f;   // opensphere
     float air = 0.5f, spread = 0.5f, blur = 0.0f, nearR = 0.12f;   // its distance settings (its segment's, on the timeline)
     int effect = fx::None;
-    float fzSlide = 0.3f, fzDenoise = 0.0f, fzEvery = 0.0f;
-    int fzGen = 0;
+    float fzSlide = 0.3f, fzDenoise = 0.0f, fzEvery = 0.0f, fzScan = 0.6f;
+    int fzGen = 0, fzMode = 0;
 };
 
 using CellArray = std::array<std::shared_ptr<Sound>, bank::kCells>;
@@ -91,12 +91,13 @@ private:
         bool used = false;
         int fz = -1;                      // its freezer from the pool, while it has the freeze effect
         int fzGen = 0;
-        float fzSlide = 0.3f, fzDenoise = 0.0f, fzEvery = 0.0f;
+        float fzSlide = 0.3f, fzDenoise = 0.0f, fzEvery = 0.0f, fzScan = 0.6f;
+        int fzMode = 0;
     };
     void render (Slot&, int si, const Output&, int off, int n, const float* inL, const float* inR);
 
     std::array<Slot, kSlots> slots;
-    static constexpr int kFreezers = 12;   // made up front, so the audio thread never allocates
+    static constexpr int kFreezers = 8;   // made up front, so the audio thread never allocates
     std::array<std::unique_ptr<Freezer>, kFreezers> freezers;
     std::array<bool, kFreezers> freezerUsed {};
     std::array<float, kSub> tmpL {}, tmpR {};
