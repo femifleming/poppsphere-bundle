@@ -124,6 +124,90 @@ int main (int argc, char** argv)
 
     const double sr = 48000;
     const int n = 48000 * 3;
+    if (args[0] == "--figs" && args.size() > 1)
+    {
+        // data for the manual's charts, as JSON
+        juce::DynamicObject::Ptr root = new juce::DynamicObject();
+        auto arr = [] (const float* v, int count) { juce::Array<juce::var> a; for (int i = 0; i < count; ++i) a.add (std::round (v[i] * 100.0f) / 100.0f); return juce::var (a); };
+        // a test spectrum: pink-ish noise + tones at 440, 1250, 3000, 5100 Hz
+        auto sig = [&] (float gain, int seed)
+        {
+            auto b = testSignal (sr, 48000 * 2, 3000, 0.18f * gain, 0.12f * gain, seed);
+            for (float hz : { 440.0f, 1250.0f, 5100.0f })
+                for (int i = 0; i < b.getNumSamples(); ++i)
+                    for (int c = 0; c < 2; ++c) b.addSample (c, i, 0.12f * gain * std::sin (juce::MathConstants<float>::twoPi * hz * (float) i / (float) sr));
+            return b;
+        };
+        auto reductionFor = [&] (std::function<void (QuellProcessor&)> setup, float gain)
+        {
+            Rig r; setup (r.p); r.prep();
+            r.run (sig (gain, 5));
+            ql::Engine::Display d; r.p.readDisplay (d);
+            juce::DynamicObject::Ptr o = new juce::DynamicObject();
+            o->setProperty ("red", arr (d.red[0].data(), ql::Engine::kDisplayPoints));
+            o->setProperty ("input", arr (d.input.data(), ql::Engine::kDisplayPoints));
+            return juce::var (o.get());
+        };
+        juce::DynamicObject::Ptr modes = new juce::DynamicObject();
+        for (int m = 0; m < 2; ++m)
+            for (float gain : { 1.0f, 0.25f })
+                modes->setProperty (juce::String (m ? "hard" : "soft") + (gain < 1 ? "_quiet" : "_loud"),
+                                    reductionFor ([m] (QuellProcessor& q) { q.set ("mode", (float) m); q.set ("depth", 8); }, gain));
+        root->setProperty ("modes", modes.get());
+        juce::DynamicObject::Ptr det = new juce::DynamicObject();
+        for (float d : { 1.0f, 5.0f, 9.0f })
+            det->setProperty ("d" + juce::String ((int) d), reductionFor ([d] (QuellProcessor& q) { q.set ("depth", 8); q.set ("detail", d); }, 1.0f));
+        root->setProperty ("detail", det.get());
+        juce::DynamicObject::Ptr dep = new juce::DynamicObject();
+        for (float d : { 3.0f, 8.0f, 14.0f })
+            dep->setProperty ("d" + juce::String ((int) d), reductionFor ([d] (QuellProcessor& q) { q.set ("depth", d); q.set ("detail", 6); }, 1.0f));
+        root->setProperty ("depth", dep.get());
+
+        // time: a 3 kHz tone over noise switches on at 0.3 s and off at 1.0 s; reduction at 3 kHz over time
+        auto timeFor = [&] (float attack, float release)
+        {
+            Rig r (sr, 64); r.p.set ("depth", 8); r.p.set ("detail", 6); r.p.set ("attack", attack); r.p.set ("release", release); r.p.set ("quality", 2); r.prep();
+            const int len = (int) (sr * 1.6);
+            auto b = testSignal (sr, len, 3000, 0.0f, 0.1f, 9);
+            for (int i = (int) (sr * 0.3); i < (int) (sr * 1.0); ++i)
+                for (int c = 0; c < 2; ++c) b.addSample (c, i, 0.3f * std::sin (juce::MathConstants<float>::twoPi * 3000.0f * (float) i / (float) sr));
+            const int k = (int) std::round (std::log (3000.0 / 20.0) / std::log (1000.0) * ql::Engine::kDisplayPoints);
+            juce::Array<juce::var> out; ql::Engine::Display d; float last = 0;
+            juce::AudioBuffer<float> blk (2, 64); juce::MidiBuffer mb;
+            for (int pos = 0; pos + 64 <= len; pos += 64)
+            {
+                for (int c = 0; c < 2; ++c) blk.copyFrom (c, 0, b, c, pos, 64);
+                r.p.processBlock (blk, mb);
+                if (r.p.readDisplay (d)) last = juce::jmax (d.red[0][(size_t) k - 1], d.red[0][(size_t) k], d.red[0][(size_t) k + 1]);
+                if ((pos / 64) % 8 == 0) out.add (std::round (last * 100.0f) / 100.0f);
+            }
+            return juce::var (out);
+        };
+        juce::DynamicObject::Ptr tm = new juce::DynamicObject();
+        for (float a : { 1.0f, 5.0f, 9.0f }) tm->setProperty ("a" + juce::String ((int) a), timeFor (a, 5.0f));
+        for (float rl : { 1.0f, 5.0f, 9.0f }) tm->setProperty ("r" + juce::String ((int) rl), timeFor (2.0f, rl));
+        tm->setProperty ("step", 512.0 / sr);
+        root->setProperty ("time", tm.get());
+
+        // depth curves of each band shape, and the tilt weights
+        juce::DynamicObject::Ptr shapes = new juce::DynamicObject();
+        for (int t = 0; t < ql::kNumTypes; ++t)
+        {
+            ql::Settings s;
+            auto& b = s.bands[0]; b.used = true; b.type = t; b.freq = 1000; b.gain = 9; b.q = ql::typeUsesSlope (t) ? 2.0f : 1.0f;
+            float v[200];
+            for (int i = 0; i < 200; ++i) v[i] = 20.0f * std::log10 (juce::jmax (1.0e-3f, ql::depthCurve (s, 20.0f * std::pow (1000.0f, (float) i / 199.0f), 0)));
+            shapes->setProperty (juce::String (t), arr (v, 200));
+        }
+        root->setProperty ("shapes", shapes.get());
+        float lw[200], hw[200];
+        for (int i = 0; i < 200; ++i) { const float f = 20.0f * std::pow (1000.0f, (float) i / 199.0f); lw[i] = ql::lowWeight (f); hw[i] = ql::highWeight (f); }
+        root->setProperty ("tiltLow", arr (lw, 200));
+        root->setProperty ("tiltHigh", arr (hw, 200));
+        juce::File (args[1]).replaceWithText (juce::JSON::toString (juce::var (root.get()), true));
+        std::printf ("wrote %s\n", args[1].toRawUTF8());
+        return 0;
+    }
     if (args[0] == "--dbg")
     {
         Rig r; r.p.set ("depth", 9); r.p.set ("detail", 7);

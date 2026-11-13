@@ -1,6 +1,8 @@
 # Quell
 
-A dynamic resonance suppressor (VST3 / VST2 / AU / standalone, macOS universal). It follows the feature set described
+A dynamic resonance suppressor, drawn in the style of an early-2000s generative audio app (red field, white play area, colour grids; blue help layer). Manual: [docs/manual/manual.pdf](docs/manual/manual.pdf) (rebuild with `QuellTest --figs docs/manual/figs.json && python3 docs/manual/make.py`).
+
+It is (VST3 / VST2 / AU / standalone, macOS universal). It follows the feature set described
 in the soothe3 user manual — with its own name, look and DSP — and finds resonances as they happen and notches them
 out only while they ring.
 
