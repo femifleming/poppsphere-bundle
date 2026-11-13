@@ -337,6 +337,8 @@ int main (int argc, char** argv)
             shot (*ed, "main");
             oe->setHelpPage (0); oe->tick();
             shot (*ed, "guide");
+            oe->setHelpPage (1); oe->tick();
+            shot (*ed, "help1");
             oe->setHelpPage (2); oe->tick();
             shot (*ed, "help");
             oe->setHelpPage (-1);

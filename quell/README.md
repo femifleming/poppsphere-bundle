@@ -2,7 +2,7 @@
 
 A dynamic resonance suppressor, drawn in the style of an early-2000s generative audio app (red field, white play area, colour grids; blue help layer). Manual: [docs/manual/manual.pdf](docs/manual/manual.pdf) (rebuild with `QuellTest --figs docs/manual/figs.json && python3 docs/manual/make.py`).
 
-It is (VST3 / VST2 / AU / standalone, macOS universal). It follows the feature set described
+It is a VST3 / VST2 / AU / LV2 plug-in and standalone app for macOS (universal), Windows and Linux. It follows the feature set described
 in the soothe3 user manual — with its own name, look and DSP — and finds resonances as they happen and notches them
 out only while they ring.
 
@@ -26,7 +26,7 @@ out only while they ring.
 - **Footer** — Bypass (soft, keeps processing), Delta (what is removed), Mix, Out gain, Quality (Normal / High / Ultra time
   resolution, plus Linear phase), Low latency, reduction meters.
 - **Toolbar** — external sidechain (SC) + listen + level, presets (factory, user save/load in
-  `~/Library/Application Support/Quell/Presets`), undo/redo (cmd-Z / shift-cmd-Z), A/B + copy, settings (always render on
+  `Quell/Presets` under the user application-data folder: `~/Library/Application Support`, `%APPDATA%`, `~/.config`), undo/redo (cmd-Z / shift-cmd-Z), A/B + copy, settings (always render on
   Ultra when bouncing offline, frequency readout, window size S/M/L/XL; the window also resizes from the corner).
 
 Every control: drag, shift-drag for fine, double-click to type, alt-click to reset.
@@ -51,14 +51,19 @@ truncated to 256 taps directly on the signal, crossfaded each hop.
 
 ## Build
 
+From the top of the bundle (JUCE and the VST2 headers live there):
+
 ```
 git submodule update --init
-cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DQUELL_COPY_AFTER_BUILD=ON
-cmake --build build-release --target Quell_All
-cmake --build build-release --target QuellTest && build-release/QuellTest_artefacts/Release/QuellTest
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build --target Quell_All QuellTest
+build/quell/QuellTest_artefacts/Release/QuellTest
 ```
+
+On macOS add `-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"` for a universal build, and `-DQUELL_COPY_AFTER_BUILD=ON` to install
+into your plug-in folders. Builds on macOS (AU, VST3, VST2, app), Windows (VST3, VST2, app) and Linux (VST3, LV2, VST2, app).
 
 `QuellTest` checks nulls at zero depth for every path, latency alignment, resonance reduction, wet + delta = dry,
 random-settings stability, state/A-B round trip and speed. `--shot file.png [bands]` renders the window; `--wav dir` writes renders.
 
-VST2 uses the FST headers in `third_party/vst2-fst`.
+VST2 uses the FST headers in `../third_party/vst2-fst`.

@@ -7,7 +7,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 endif()
 
-project(openprocess VERSION 1.0.0 LANGUAGES C CXX)
+project(openprocess VERSION 1.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -16,7 +16,11 @@ option(OP_COPY_AFTER_BUILD "Install the plug-ins into your user plug-in folders 
 option(OP_BUILD_TESTS "Build the offline test tool (OpTest)" ON)
 option(OP_BUILD_VST2 "Also build the VST2-compatible plug-in (uses the FST headers)" ON)
 
-add_subdirectory(JUCE)
+# JUCE and the VST2 headers live at the top of the bundle
+set(BUNDLE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
+if(NOT COMMAND juce_add_plugin)
+    add_subdirectory("${BUNDLE_ROOT}/JUCE" "${CMAKE_BINARY_DIR}/JUCE")
+endif()
 
 if(APPLE)
     set(OP_FORMATS AU VST3 Standalone)
@@ -26,7 +30,9 @@ else()
     set(OP_FORMATS VST3 Standalone)
 endif()
 if(OP_BUILD_VST2)
-    juce_set_vst2_sdk_path("${CMAKE_CURRENT_SOURCE_DIR}/third_party/vst2-fst")
+    if(NOT TARGET juce_vst2_sdk)
+        juce_set_vst2_sdk_path("${BUNDLE_ROOT}/third_party/vst2-fst")
+    endif()
     list(APPEND OP_FORMATS VST)
 endif()
 

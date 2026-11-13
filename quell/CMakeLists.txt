@@ -1,18 +1,22 @@
 cmake_minimum_required(VERSION 3.22)
 # macOS: one universal build for Apple silicon and Intel
-set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Universal binary")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS")
-project(Quell VERSION 1.0.0 LANGUAGES C CXX)
+project(Quell VERSION 1.0.1 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(QUELL_COPY_AFTER_BUILD "Install into the user plug-in folders after building" OFF)
 
+option(QUELL_BUILD_TESTS "Build the offline test tool (QuellTest)" ON)
 option(QUELL_BUILD_VST2 "Also build the VST2-compatible plug-in (uses the FST headers)" ON)
 
-if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/JUCE/CMakeLists.txt")
-    message(FATAL_ERROR "JUCE is missing - run: git submodule update --init")
+# JUCE and the VST2 headers live at the top of the bundle
+set(BUNDLE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
+if(NOT COMMAND juce_add_plugin)
+    if(NOT EXISTS "${BUNDLE_ROOT}/JUCE/CMakeLists.txt")
+        message(FATAL_ERROR "JUCE is missing - run: git submodule update --init")
+    endif()
+    add_subdirectory("${BUNDLE_ROOT}/JUCE" "${CMAKE_BINARY_DIR}/JUCE")
 endif()
-add_subdirectory(JUCE)
 
 # AU + VST3 + app on macOS, VST3 + app on Windows, VST3 + LV2 + app on Linux; VST2 everywhere
 if(APPLE)
@@ -24,12 +28,14 @@ else()
 endif()
 if(QUELL_BUILD_VST2)
     # FST: clean-room, GPL-licensed headers for the VST2 plug-in interface
-    juce_set_vst2_sdk_path("${CMAKE_CURRENT_SOURCE_DIR}/third_party/vst2-fst")
+    if(NOT TARGET juce_vst2_sdk)
+        juce_set_vst2_sdk_path("${BUNDLE_ROOT}/third_party/vst2-fst")
+    endif()
     list(APPEND QL_FORMATS VST)
 endif()
 
 juce_add_plugin(Quell
-    VERSION 1.0.0
+    VERSION 1.0.1
     COMPANY_NAME "FreakiePie"
     BUNDLE_ID "com.freakiepie.quell"
     PLUGIN_MANUFACTURER_CODE Frkp
@@ -55,10 +61,12 @@ target_link_libraries(Quell
     PRIVATE juce::juce_audio_utils juce::juce_dsp
     PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_lto_flags)
 
+if(QUELL_BUILD_TESTS)
 juce_add_console_app(QuellTest PRODUCT_NAME "QuellTest")
 target_sources(QuellTest PRIVATE tests/Test.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp)
 target_compile_definitions(QuellTest PRIVATE ${QL_DEFS} JucePlugin_Name="Quell" JucePlugin_Build_Standalone=1
     JucePlugin_IsSynth=0 JucePlugin_WantsMidiInput=0 JucePlugin_ProducesMidiOutput=0 JucePlugin_IsMidiEffect=0
-    JucePlugin_ManufacturerCode=0x46726b70 JucePlugin_PluginCode=0x51656c6c JucePlugin_VersionString="1.0.0"
-    JucePlugin_Manufacturer="FreakiePie" JucePlugin_Desc="Quell" JucePlugin_VersionCode=0x10000 QUELL_TEST=1)
+    JucePlugin_ManufacturerCode=0x46726b70 JucePlugin_PluginCode=0x51656c6c JucePlugin_VersionString="1.0.1"
+    JucePlugin_Manufacturer="FreakiePie" JucePlugin_Desc="Quell" JucePlugin_VersionCode=0x10001 QUELL_TEST=1)
 target_link_libraries(QuellTest PRIVATE juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+endif()

@@ -147,9 +147,9 @@ add('<section class="cover">')
 add('<div class="grids">' + ''.join(grid_svg(k, 3 + k * 7, rows=6) for k in range(4)) + '</div>')
 add('<div class="pill">manual is loading...</div>')
 add('<div class="word"><span class="a">que</span><span class="b">ll</span></div>')
-add('<div class="sub">a dynamic resonance suppressor<br>vst3 &middot; vst &middot; au &middot; standalone &middot; macos</div>')
+add('<div class="sub">a dynamic resonance suppressor<br>vst3 &middot; vst &middot; au &middot; lv2 &middot; standalone &middot; macos &middot; windows &middot; linux</div>')
 add('<img class="coverimg" src="img/main.png">')
-add('<div class="ver">version 1.0 &middot; 2026</div>')
+add('<div class="ver">version 1.0.1 &middot; 2026</div>')
 add('</section>')
 
 # ---------------------------------------------------------------------------------------------- body
@@ -160,12 +160,11 @@ note('the quickest start: put quell on a vocal or a bright instrument, leave eve
 
 h2('installing')
 table([
- ('vst3', '~/Library/Audio/Plug-Ins/VST3/Quell.vst3'),
- ('vst (2)', '~/Library/Audio/Plug-Ins/VST/Quell.vst'),
- ('audio unit', '~/Library/Audio/Plug-Ins/Components/Quell.component'),
- ('standalone app', '~/Applications/Quell.app &mdash; plays your audio input through quell'),
-], head=['format', 'where it goes'])
-p('quell runs on mono and stereo tracks and has an optional stereo <b>sidechain</b> input. it builds for apple silicon and intel macs.')
+ ('macos', 'Quell.vst3 &rarr; ~/Library/Audio/Plug-Ins/VST3 &middot; Quell.component &rarr; ~/Library/Audio/Plug-Ins/Components &middot; Quell.vst &rarr; ~/Library/Audio/Plug-Ins/VST &middot; Quell.app &rarr; /Applications (or brew install --cask femifleming/tap/quell)'),
+ ('windows', 'Quell.vst3 &rarr; C:\\Program Files\\Common Files\\VST3 &middot; Quell.dll (vst 2) &rarr; your vst folder &middot; Quell.exe runs on its own'),
+ ('linux', 'Quell.vst3 &rarr; ~/.vst3 &middot; Quell.lv2 &rarr; ~/.lv2 &middot; Quell.so (vst 2) &rarr; ~/.vst &middot; Quell runs on its own (alsa or jack)'),
+], head=['system', 'where it goes'])
+p('everything comes in the <b>freakiepie bundle</b> (github.com/femifleming/freakiepie-bundle, releases), one zip per system. the standalone app plays your audio input through quell. quell runs on mono and stereo tracks and has an optional stereo <b>sidechain</b> input. on macos it is universal (apple silicon and intel).')
 
 page()
 h1('the window', 'a guided tour')
@@ -273,11 +272,11 @@ h1('top row')
 add('<div class="minigrids">' + ''.join(f'<div>{grid_svg(k, 3 + k * 7, rows=2)}<span>{t}</span></div>' for k, t in enumerate(['presets', 'my presets', 'shapes', 'remove'])) + '</div>')
 table([
  ('<b>presets</b> (squares)', 'the factory presets. bright cells are presets; hover to read the name, click to load. the loaded one has a black frame.'),
- ('<b>my presets</b> (slashes)', 'your stored configurations. the last bright cell is "... and store configurations here": click it, give a name. files live in ~/Library/Application Support/Quell/Presets (settings &rarr; show preset folder).'),
+ ('<b>my presets</b> (slashes)', 'your stored configurations. the last bright cell is "... and store configurations here": click it, give a name. files live in the quell/presets folder of your user application data: ~/Library/Application Support on macos, %appdata% on windows, ~/.config on linux (settings &rarr; show preset folder).'),
  ('<b>shapes</b> (diamonds)', 'the eight band shapes. with bands selected, click a shape to change them. with nothing selected, it picks the shape for the next band you add.'),
  ('<b>remove</b> (crosses)', 'one cell per band slot; bright = in use. click to remove that band.'),
  ('<b>status pill</b>', 'shows what the control under the mouse does, or which preset is loaded.'),
- ('<b>undo / redo</b>', 'also cmd-z and shift-cmd-z. a and b keep separate histories.'),
+ ('<b>undo / redo</b>', 'also cmd-z and shift-cmd-z (ctrl on windows and linux). a and b keep separate histories.'),
  ('<b>a / b / a &gt; b</b>', 'two complete settings to compare. a &gt; b copies the one you are on to the other.'),
  ('<b>sc</b> and <b>listen</b>', 'sc: the cuts follow the sidechain input instead of the track (route a signal to quell\'s sidechain in your host). listen: hear the sidechain. "(no input)" means nothing is routed to it.'),
  ('<b>settings</b>', 'render on ultra when bouncing, frequency readout near the cursor, window size, reset to default, show preset folder.'),
@@ -315,7 +314,7 @@ table([
  ('sample rates', 'any; analysis size 2048 / 4096 / 8192 up to 50 / 100 / 192 khz'),
  ('bands', '8 (low cut, low shelf, high shelf, high cut, bell, band pass, band reject, tilt)'),
  ('cpu (m2 max, 48 khz stereo)', 'about 4% of a core in normal, 8 to 10% in high, 16 to 24% in ultra'),
- ('formats', 'vst3, vst 2, audio unit, standalone; universal (apple silicon + intel)'),
+ ('formats', 'vst3, vst 2, standalone everywhere; audio unit on macos (universal), lv2 on linux'),
 ])
 
 body = '\n'.join(out)

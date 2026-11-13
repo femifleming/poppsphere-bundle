@@ -81,9 +81,9 @@
 <section class="page cover">
   <div class="tri2"></div><div class="tri"></div>
   <div class="word mark"><span class="o">open</span><span class="p">process</span></div><br>
-  <span class="sub">manual &nbsp;·&nbsp; version 1.0</span>
+  <span class="sub">manual &nbsp;·&nbsp; version 1.1</span>
   <img class="shot" src="img/guide.png" alt="">
-  <div class="meta"><span>vst3 · vst2 · au · standalone</span><span>november 2026</span></div>
+  <div class="meta"><span>vst3 · vst2 · au · lv2 · standalone · macos · windows · linux</span><span>november 2026</span></div>
 </section>
 
 <!-- ========== contents + about ========== -->
@@ -133,12 +133,18 @@
 <!-- ========== install + screen ========== -->
 <section class="page">
   <h1><span class="n">2</span>installing and starting</h1>
+  <p>openprocess comes in the <b>FreakiePie bundle</b> (with opensphere and Quell): one download per system from
+  the releases page of <code>github.com/femifleming/freakiepie-bundle</code>. On a Mac, Homebrew does it in one line:
+  <code>brew install --cask femifleming/tap/openprocess</code>.</p>
   <table>
-    <tr><th>format</th><th>installed at</th></tr>
-    <tr><td>VST3</td><td><code>~/Library/Audio/Plug-Ins/VST3/openprocess.vst3</code></td></tr>
-    <tr><td>VST2</td><td><code>~/Library/Audio/Plug-Ins/VST/openprocess.vst</code></td></tr>
-    <tr><td>Audio Unit</td><td><code>~/Library/Audio/Plug-Ins/Components/openprocess.component</code></td></tr>
-    <tr><td>standalone</td><td><code>~/Applications/openprocess.app</code></td></tr>
+    <tr><th>system</th><th>put the files here</th></tr>
+    <tr><td>macOS</td><td><code>openprocess.vst3</code> → <code>~/Library/Audio/Plug-Ins/VST3</code>,
+      <code>openprocess.component</code> → <code>…/Components</code>, <code>openprocess.vst</code> → <code>…/VST</code>,
+      <code>openprocess.app</code> → <code>/Applications</code>. Universal: Apple silicon and Intel.</td></tr>
+    <tr><td>Windows</td><td><code>openprocess.vst3</code> → <code>C:\Program Files\Common Files\VST3</code>,
+      <code>openprocess.dll</code> (VST2) → your VST folder; <code>openprocess.exe</code> runs on its own.</td></tr>
+    <tr><td>Linux</td><td><code>openprocess.vst3</code> → <code>~/.vst3</code>, <code>openprocess.lv2</code> → <code>~/.lv2</code>,
+      <code>openprocess.so</code> (VST2) → <code>~/.vst</code>; <code>openprocess</code> runs on its own (ALSA or JACK).</td></tr>
   </table>
   <p><b>In a DAW</b>, load openprocess on an instrument track. It plays as soon as something is in the play area,
   whether or not the transport is running. It has nothing to do with the song tempo. It has a stereo audio input,
@@ -308,12 +314,17 @@
     </div>
   </div>
 
-  <h1 style="margin-top:3mm"><span class="n">10</span>timeline</h1>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>7</span></div>
+</section>
+
+<section class="page">
+  <h1><span class="n">10</span>timeline</h1>
   <img class="full" src="img/timeline.png" alt="">
   <div class="cols">
     <div>
       <p>The timeline is the bar at the bottom. It holds the composition. Reels dropped on it become
-      <b>segments</b> in the reel's colour, 20 seconds long at first.</p>
+      <b>segments</b> in the reel's colour: 20 seconds long, or an eighth of what the timeline shows when you are looking
+      at a long stretch of it.</p>
       <ul>
         <li><b>drag</b> a segment to move it</li>
         <li><b>drag its right end</b> to make it longer or shorter</li>
@@ -321,23 +332,38 @@
         <li><b>drag it away</b> (up or down, off the bar) to delete it</li>
       </ul>
       <p>Segments may overlap. Where they do, both play together. Each segment keeps its own copy of the snapshot,
-      so deleting the reel does not change it. Segments fade in and out over 30 ms at their edges.</p>
+      so deleting the reel does not change it. Segments fade in and out over 30 ms at their edges. There is room for
+      <b>256 segments</b>.</p>
+      <h2>wheel</h2>
+      <p>The red crescent to the left sets the <b>length of the composition, from 1 to 30 minutes</b>. Drag up or right
+      for longer, down or left for shorter. The scale is logarithmic: the first few minutes move in tenths, then halves,
+      then whole minutes above ten.</p>
+      <p>Normally segments keep their places relative to the whole, as in the original, so a longer piece stretches them
+      too. <b>Hold shift while you drag the wheel</b> and they keep their times in seconds instead: the end of the piece
+      moves and nothing else does (segments past a new, shorter end are dropped).</p>
     </div>
     <div>
-      <h2 style="margin-top:0">wheel</h2>
-      <p>The red crescent to the left sets the <b>length of the composition, from 1 to 4 minutes</b> in tenths.
-      Drag up or right for longer, down or left for shorter. Segments keep their places relative to the whole, so a
-      longer piece stretches them too.</p>
+      <h2 style="margin-top:0">zoom</h2>
+      <p>Thirty minutes do not fit on 540 pixels, so the timeline zooms. Over the timeline:</p>
+      <ul>
+        <li><b>mouse wheel</b> up / away, or <b>pinch</b> on a trackpad: closer in, around the pointer</li>
+        <li><b>sideways scroll</b>, or <b>shift + wheel</b>: along the piece</li>
+        <li><b>double-click</b> the bare bar: 4× closer there, or, when zoomed, back to the whole piece</li>
+      </ul>
+      <p>When zoomed in, a thin <b>overview strip</b> under the bar shows the whole composition with a white window round
+      the part on screen. Drag the window, or click the strip to jump. The ticks under the bar follow the zoom, from
+      seconds to ten minutes, with times written as <code>9:30</code> or <code>10'</code>. You can zoom in until ten seconds
+      fill the bar.</p>
+      <img class="full" src="img/timeline30.png" alt="" style="margin-bottom:2mm">
       <h2>play flag</h2>
-      <p>The <b>red flag</b> on its white stem is the play pointer. <b>Click it</b> to play the composition from the
-      flag to the end. Playback then starts over from the flag, as a loop, until you click the flag again.
-      <b>Drag the flag</b> to make playback start later.</p>
-      <div class="note">While the timeline plays, the play area shows what is sounding and nothing else can be
-      changed. This is the one exception to the real-time rule, as in the original. Click the flag to stop
-      and edit again.</div>
+      <p>The <b>red flag</b> on its white stem is the play pointer. <b>Click it</b> to play from the flag to the end; playback
+      then starts over from the flag, as a loop, until you click again. <b>Drag the flag</b> to start later. When the flag is
+      off screen a small red arrow at that end shows where it is. While playing, the view pages along with the pointer.</p>
+      <div class="note">While the timeline plays nothing else can be changed (zooming still works). This is the one
+      exception to the real-time rule, as in the original.</div>
     </div>
   </div>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>7</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>8</span></div>
 </section>
 
 <!-- ========== sounds ========== -->
@@ -376,7 +402,7 @@
   </ul>
   <div class="note">A session remembers where its files are, not the audio itself. If files are moved, those squares
   keep their previous sound, and a message names the file that could not be read.</div>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>8</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>9</span></div>
 </section>
 
 <!-- ========== tools, help ========== -->
@@ -402,9 +428,10 @@
   </div>
   <h2>render to file</h2>
   <p>If the timeline has segments, the render runs from the play flag to the end of the composition. If not, it records
-  the play area for the composition length set on the wheel. The file is 44.1 kHz, 16-bit stereo, mixed at the current
-  Master level. The default place is <code>~/Music/openprocess</code>. Rendering is faster than real time, and a message
-  appears when it is done.</p>
+  the play area for the composition length set on the wheel. The file is 48 kHz, 16-bit stereo, mixed at the current
+  Master level, and is written as it goes, so a 30-minute piece needs no more memory than a short one. The default place
+  is <code>~/Music/openprocess</code> (your Music folder on Windows and Linux too). Rendering is faster than real time;
+  the message in the corner counts up the percent.</p>
 
   <h1 style="margin-top:3mm"><span class="n">13</span>help and demo</h1>
   <div class="side">
@@ -423,7 +450,7 @@
   applies effects, uses presets and operators, takes snapshots, arranges and plays them. <b>Any click ends the demo</b>
   and puts back exactly what you had. As in the installation, the standalone app starts the demo by itself after three
   minutes without input when the play area is empty.</p>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>9</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>10</span></div>
 </section>
 
 <!-- ========== midi + reference ========== -->
@@ -461,10 +488,10 @@
     <tr><td>sounds in the play area</td><td>up to 24</td></tr>
     <tr><td>volume</td><td>height squared; the bottom edge is silent</td></tr>
     <tr><td>snapshots</td><td>up to 10</td></tr>
-    <tr><td>timeline segments</td><td>up to 64; new segments 20 s</td></tr>
-    <tr><td>composition length</td><td>1.0 – 4.0 minutes</td></tr>
+    <tr><td>timeline segments</td><td>up to 256; new segments 20 s</td></tr>
+    <tr><td>composition length</td><td>1 – 30 minutes; the timeline zooms to 10 s</td></tr>
     <tr><td>capture</td><td>last 8 s of input</td></tr>
-    <tr><td>render</td><td>WAV, 44.1 kHz, 16-bit, stereo</td></tr>
+    <tr><td>render</td><td>WAV, 48 kHz, 16-bit, stereo, streamed to disk</td></tr>
     <tr><td>user folder</td><td><code>~/Music/openprocess</code></td></tr>
     <tr><td>saved with the session</td><td>play area, snapshots, timeline, length, flag, how each square was made, parameters</td></tr>
     <tr><td>window</td><td>1000 × 720 at 100 %, resizable 60 – 160 %</td></tr>
@@ -475,7 +502,7 @@
   Ars Electronica archive · Oval, "Ovalprocess", <i>Leonardo</i> 35/5, 2002 · Sam Inglis, "Markus Popp: Music As Software",
   <i>Sound On Sound</i>, October 2002 · Marc Weidenbaum, interview with Markus Popp, Disquiet / Pulse!, 1996.
   openprocess is an independent homage. It is not made, endorsed or distributed by Markus Popp or Oval.</p>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>10</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>11</span></div>
 </section>
 
 </body>
