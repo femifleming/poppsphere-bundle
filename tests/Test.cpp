@@ -111,6 +111,8 @@ int main (int argc, char** argv)
         std::unique_ptr<juce::AudioProcessorEditor> ed (r.p.createEditor());
         ed->setSize (980, 640);
         for (int i = 0; i < 6; ++i) { r.run (testSignal (r.sr, 2048, 2800, 0.3f, 0.1f, i)); static_cast<QuellEditor*> (ed.get())->refreshNow(); }
+        static_cast<QuellEditor*> (ed.get())->showState (args.contains ("help"), args.contains ("bands") ? 1 : -1);
+        static_cast<QuellEditor*> (ed.get())->refreshNow();
         auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 2.0f);
         juce::File f (juce::File::getCurrentWorkingDirectory().getChildFile (args[1]));
         f.deleteFile();

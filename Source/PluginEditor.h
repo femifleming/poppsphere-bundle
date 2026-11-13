@@ -12,12 +12,13 @@ public:
     static constexpr int baseW = 980, baseH = 640;
     void setScale (float s);
     void refreshNow() { timerCallback(); }
+    void showState (bool help, int selectBand); // for screenshots
 
 private:
     void timerCallback() override;
     QuellProcessor& proc;
     std::unique_ptr<juce::Component> content;
-    std::unique_ptr<juce::TooltipWindow> tips;
+    std::unique_ptr<juce::LookAndFeel> look;
     juce::ComponentBoundsConstrainer constrainer;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (QuellEditor)
 };
