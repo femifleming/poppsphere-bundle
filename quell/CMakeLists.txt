@@ -42,6 +42,7 @@ juce_add_plugin(Quell
     PLUGIN_CODE Qell
     FORMATS ${QL_FORMATS}
     PRODUCT_NAME "Quell"
+    ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon/icon_1024.png"
     DESCRIPTION "Dynamic resonance suppressor"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE

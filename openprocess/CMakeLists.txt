@@ -52,6 +52,7 @@ function(op_add_plugin target code name desc spatial au_type)
         PLUGIN_CODE ${code}
         FORMATS ${OP_FORMATS}
         PRODUCT_NAME "${name}"
+        ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon/${name}_1024.png"
         DESCRIPTION "${desc}"
         IS_SYNTH TRUE
         NEEDS_MIDI_INPUT TRUE
