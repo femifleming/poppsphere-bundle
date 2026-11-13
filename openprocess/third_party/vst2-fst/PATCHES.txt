@@ -1,0 +1,3 @@
+Local changes to fst.h (from https://git.iem.at/zmoelnig/FST):
+- fstSpeakerArrangement.speakers: flexible array -> speakers[8], because JUCE stores the structure by value.
+- fstPinProperties: added 48 bytes of trailing padding so the structure has the 128-byte size hosts allocate.
