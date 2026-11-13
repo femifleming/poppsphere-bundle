@@ -61,6 +61,7 @@ public:
     void loadSnapshot (int snapId);
     void toggleTimeline();
     void clearMix();
+    void clearAll();   // a new piece: play area, reels and timeline
 
     //== sounds =================================================================
     bool cellReady (int cell) const;

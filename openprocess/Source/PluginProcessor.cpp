@@ -441,6 +441,20 @@ void OpProcessor::toggleTimeline()
     if (! hasSegs) setStatus ("drag snapshots onto the timeline first");
 }
 
+void OpProcessor::clearAll()
+{
+    {
+        const juce::SpinLock::ScopedLockType sl (lock);
+        model.mix.clear();
+        model.snaps.clear();
+        model.segs.clear();
+        model.playStart = 0.0f;
+        model.timelinePlaying = false;
+        timelinePlayingFlag = false;
+    }
+    setStatus ("cleared: a new piece");
+}
+
 void OpProcessor::clearMix()
 {
     const juce::SpinLock::ScopedLockType sl (lock);

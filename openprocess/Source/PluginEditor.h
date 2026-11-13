@@ -134,7 +134,7 @@ private:
     static juce::Colour reelColour (int c);
 
     // actions
-    void toolAction (int i);
+    void toolAction (int i, bool shift = false);
     void endDemo();
     void demoStep();
     void setupDemoStep();

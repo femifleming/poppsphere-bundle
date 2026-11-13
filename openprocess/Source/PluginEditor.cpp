@@ -9,7 +9,7 @@ const juce::Colour kRed (0xffd42a24), kMustard (0xffc4a232), kOrange (0xffe08a1e
 const juce::Colour kTag (0xffc8c9d1);
 constexpr float kPi = juce::MathConstants<float>::pi;
 
-const char* kToolNames[6] = { "load sounds", "built-in sounds", "skip again", "capture input", "render to file", "clear mix" };
+const char* kToolNames[6] = { "load sounds", "built-in sounds", "skip again", "capture input", "render to file", "clear (shift: all)" };
 const juce::uint32 kBracketColours[8] = { 0xff6878d8, 0xff2a3ea8, 0xff4a3aa8, 0xff2a4ac0,
                                           0xff7a58c8, 0xff3048b8, 0xff8090e0, 0xff2438a0 };
 const char* kBracketGlyphs[8] = { "}", "}", ")", "}", "(", "[", "o", "[" };
@@ -1379,7 +1379,7 @@ void OpEditor::drawHelp (juce::Graphics& g)
         "red flag: click to play / stop, drag to set the start. playing locks the rest.",
         "drop audio files or folders on the browser to chop them into 64 loops;",
         "one file dropped on one cell replaces only that cell.",
-        "tools (bottom right): load, built-in, skip again, capture input, render, clear.",
+        "tools: load, built-in, skip again, capture, render, clear (shift-click: all).",
         "MIDI: C1-G1 presets, G#1 A1 operators, A#1 snapshot, B1 timeline, C2.. cells.",
     };
    #if OP_SPATIAL
@@ -1519,7 +1519,7 @@ void OpEditor::mouseDown (const juce::MouseEvent& e)
     if (logoRect().contains (p)) { startDemo(); return; }
 
     for (int i = 0; i < 6; ++i)
-        if (toolRect (i).contains (p)) { toolAction (i); return; }
+        if (toolRect (i).contains (p)) { toolAction (i, e.mods.isShiftDown()); return; }
 
     if (viewLen < 0.999f && overviewRect().expanded (0, 5).contains (p))
     {
@@ -2160,7 +2160,7 @@ void OpEditor::filesDropped (const juce::StringArray& names, int x, int y)
     dropCell = -2;
 }
 
-void OpEditor::toolAction (int i)
+void OpEditor::toolAction (int i, bool shift)
 {
     switch (i)
     {
@@ -2204,7 +2204,9 @@ void OpEditor::toolAction (int i)
             break;
         }
         default:
-            if (playing) proc.setStatus ("stop the timeline to change things");
+            // shift-click: everything (a new piece); a plain click: the play area
+            if (shift) { proc.clearAll(); selectedItem = -1; disp.clear(); }
+            else if (playing) proc.setStatus ("stop the timeline to change things");
             else { proc.clearMix(); selectedItem = -1; }
             break;
     }

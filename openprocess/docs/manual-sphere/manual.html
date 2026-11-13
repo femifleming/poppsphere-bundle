@@ -100,23 +100,25 @@
     <li><span>2</span>installing and setting up</li>
     <li><span>3</span>the screen</li>
     <li><span>4</span>the space</li>
-    <li><span>5</span>plan view and distance</li>
-    <li><span>6</span>motions</li>
-    <li><span>7</span>live input</li>
-    <li><span>8</span>output and order</li>
-    <li><span>9</span>browser and loops</li>
-    <li><span>10</span>effects</li>
-    <li><span>11</span>presets and logical operators</li>
-    <li><span>12</span>snapshots</li>
-    <li><span>13</span>timeline</li>
-    <li><span>14</span>render to file</li>
-    <li><span>15</span>sounds and tools</li>
-    <li><span>16</span>help and demo</li>
-    <li><span>17</span>midi and parameters</li>
-    <li><span>18</span>reference</li>
+    <li><span>5</span>the globe</li>
+    <li><span>6</span>spatial meter</li>
+    <li><span>7</span>distance</li>
+    <li><span>8</span>motions</li>
+    <li><span>9</span>live input</li>
+    <li><span>10</span>output and order</li>
+    <li><span>11</span>browser and loops</li>
+    <li><span>12</span>effects</li>
+    <li><span>13</span>presets and logical operators</li>
+    <li><span>14</span>snapshots</li>
+    <li><span>15</span>timeline</li>
+    <li><span>16</span>render to file</li>
+    <li><span>17</span>sounds and tools</li>
+    <li><span>18</span>help and demo</li>
+    <li><span>19</span>midi and parameters</li>
+    <li><span>20</span>reference</li>
   </ol>
 
-  <h1 style="margin-top:8mm"><span class="n">1</span>about opensphere</h1>
+  <h1 style="margin-top:6mm"><span class="n">1</span>about opensphere</h1>
   <p class="lead">opensphere is a loop workspace that places its sounds in a sphere around you. You drag sounds into
   a window, they loop, and you keep moving and changing them while they play. The output is Ambisonics, so the
   result can be decoded to any speaker ring or dome, or to headphones.</p>
@@ -128,8 +130,8 @@
     <tr><th></th><th>openprocess</th><th>opensphere</th></tr>
     <tr><td>play area left ↔ right</td><td>stereo panorama</td><td>direction, once round you</td></tr>
     <tr><td>play area top ↔ bottom</td><td>loud ↔ soft</td><td>height, overhead ↔ 45° below</td></tr>
-    <tr><td>level</td><td>by height in the play area</td><td>by distance (plan view)</td></tr>
-    <tr><td>movement</td><td>you move the sounds</td><td>also four motions that move them by themselves</td></tr>
+    <tr><td>level</td><td>by height in the play area</td><td>by distance (the globe)</td></tr>
+    <tr><td>movement</td><td>you move the sounds</td><td>also twelve motions; scene turn and tilt</td></tr>
     <tr><td>audio input</td><td>capture and Input Thru</td><td>capture, and a live input placed in the space</td></tr>
     <tr><td>output</td><td>stereo</td><td>Ambisonics, 1st – 7th order (4 – 64 channels)</td></tr>
   </table>
@@ -137,8 +139,7 @@
   <p>Oval's music is made of short loops that drift against each other and never fall into a common beat. In stereo
   they share two speakers and blur together. Spread round a listener, each loop keeps its own place: you can hear
   which fragment is where, follow one while the others go on, and turn your head to bring another forward. A loop
-  that orbits or rises slowly changes the piece without any change to the sound itself. The rules of the original
-  still hold: everything loops, every change is heard at once, and there are only symbols, no typing.</p>
+  that orbits or rises slowly changes the piece without any change to the sound itself.</p>
   <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>2</span></div>
 </section>
 
@@ -163,7 +164,7 @@
 
   <h2>in a daw</h2>
   <p>opensphere needs a track with enough channels for the order you want: <b>4</b> for 1st order, <b>16</b> for 3rd,
-  <b>36</b> for 5th, <b>64</b> for 7th (chapter 8). After it on the same track goes an Ambisonics <b>decoder</b>, which
+  <b>36</b> for 5th, <b>64</b> for 7th (chapter 10). After it on the same track goes an Ambisonics <b>decoder</b>, which
   turns the channels into speaker feeds or binaural stereo for headphones.</p>
   <ol>
     <li>Make a track and give it the channels. In <b>REAPER</b>: the track's <i>Routing</i> button → <i>Track channels</i>
@@ -174,9 +175,9 @@
     <li>Click a bracket on the left of opensphere. Something plays around you.</li>
   </ol>
   <p>opensphere plays as soon as something is in the play area, whether or not the transport runs. It has nothing
-  to do with the song tempo. Hosts that pass audio into the track feed the live input (chapter 7).</p>
+  to do with the song tempo. Hosts that pass audio into the track feed the live input (chapter 9).</p>
   <div class="note"><b>Ableton Live and Logic</b> have no tracks wide enough for this. There opensphere sees a stereo
-  bus and plays a <b>stereo preview</b> (chapter 8). Build the piece with the preview and use <i>render to file</i>
+  bus and plays a <b>stereo preview</b> (chapter 10). Build the piece with the preview and use <i>render to file</i>
   to write the full AmbiX file, which any Ambisonics player or decoder can then open. The <b>AU</b> version offers
   up to 3rd order (16 channels).</div>
 
@@ -194,29 +195,33 @@
   <div class="shotwrap">
     <img class="full" src="img/main.png" alt="">
     <div class="pin" style="left:39.5%;top:15.8%">1</div>
-    <div class="pin" style="left:59%;top:62%">2</div>
-    <div class="pin" style="left:20.5%;top:24%">3</div>
-    <div class="pin" style="left:56%;top:6.3%">4</div>
-    <div class="pin" style="left:66.5%;top:13.5%">5</div>
-    <div class="pin" style="left:93.2%;top:30.5%">6</div>
-    <div class="pin" style="left:76.8%;top:24.3%">7</div>
-    <div class="pin" style="left:93.8%;top:44%">8</div>
-    <div class="pin" style="left:7%;top:57%">9</div>
-    <div class="pin" style="left:70.4%;top:78%">10</div>
-    <div class="pin" style="left:44.6%;top:86.4%">11</div>
-    <div class="pin" style="left:59%;top:92.3%">12</div>
-    <div class="pin" style="left:21.6%;top:90%">13</div>
-    <div class="pin" style="left:18.6%;top:82.6%">14</div>
-    <div class="pin" style="left:93%;top:87%">15</div>
+    <div class="pin" style="left:59%;top:52.8%">2</div>
+    <div class="pin" style="left:19.5%;top:23.5%">3</div>
+    <div class="pin" style="left:55.5%;top:6.3%">4</div>
+    <div class="pin" style="left:58.6%;top:8.3%">5</div>
+    <div class="pin" style="left:96.3%;top:19.8%">6</div>
+    <div class="pin" style="left:84.4%;top:24.5%">7</div>
+    <div class="pin" style="left:76.8%;top:24.3%">8</div>
+    <div class="pin" style="left:14.4%;top:43.8%">9</div>
+    <div class="pin" style="left:93.8%;top:44%">10</div>
+    <div class="pin" style="left:7%;top:57%">11</div>
+    <div class="pin" style="left:70.4%;top:78%">12</div>
+    <div class="pin" style="left:44.6%;top:86.4%">13</div>
+    <div class="pin" style="left:59%;top:92.3%">14</div>
+    <div class="pin" style="left:21.6%;top:90%">15</div>
+    <div class="pin" style="left:18.6%;top:82.6%">16</div>
+    <div class="pin" style="left:93%;top:87%">17</div>
   </div>
   <ol class="legend">
     <li>browser: 8 × 8 loops</li>
     <li>play area: the sphere around you, unrolled</li>
-    <li>plan view: the room seen from above, distance</li>
+    <li>globe: direction, distance, view and scene turn</li>
     <li>live input (red <b>in</b> square)</li>
-    <li>motions: orbit, swing, rise, drift</li>
+    <li>motions: twelve, in two rows</li>
+    <li>distance settings and motion speed (rails)</li>
     <li>ambisonic order and channels out</li>
     <li>logical operators</li>
+    <li>spatial meter (the frame's squares)</li>
     <li>effects</li>
     <li>presets</li>
     <li>snapshot button</li>
@@ -226,9 +231,10 @@
     <li>help marks · demo (word mark)</li>
     <li>tools</li>
   </ol>
-  <p>In the picture, five loops and the live input (the bar with the white dashes) are playing. The selected sound,
-  <i>glass 5</i>, shows its name, its distance (0.9 m) and the red pointers of its loop. Messages such as
-  "rendered render.wav" or "the play area is full" appear for a few seconds in a grey tag at the top left.</p>
+  <p>In the picture, loops from the browser and the live input (the bar with white dashes) are playing. Sounds with a
+  motion carry its small icon after their bar, with their own speed beside it when it isn't ×1. The selected sound shows
+  its name, its distance in metres and the red pointers of its loop. Messages such as "the play area is full" appear
+  for a few seconds in a grey tag at the top left.</p>
   <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>4</span></div>
 </section>
 
@@ -276,7 +282,7 @@
       <h2 style="margin-top:0">left ↔ right: direction</h2>
       <p>The width of the play area is <b>once round you</b>. The middle line is straight <b>in front</b>. The quarter
       lines are <b>left</b> and <b>right</b>. Both edges are straight <b>behind</b>: they are the same place, where the
-      sphere was cut. A sound that moves past one edge by itself (chapter 6) comes back in at the other.</p>
+      sphere was cut. A sound that moves past one edge by itself (chapter 8) comes back in at the other.</p>
       <p>The left half of the area is your left side, so the layout reads as if you faced the screen and the
       picture were wrapped round you.</p>
     </div>
@@ -294,36 +300,72 @@
   <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>5</span></div>
 </section>
 
-<!-- ========== plan view & distance ========== -->
+<!-- ========== globe + meter ========== -->
 <section class="page">
-  <h1><span class="n">5</span>plan view and distance</h1>
-  <div class="side">
-    <img src="img/plan.png" style="width:50mm" alt="">
+  <h1><span class="n">5</span>the globe</h1>
+  <div class="side3" style="grid-template-columns:1fr 1fr 1.25fr;gap:4mm">
+    <div><img src="img/plan.png" style="width:100%;border:1px solid #b5b6c2" alt=""><p class="small" style="margin-top:1mm">seen from above (the default)</p></div>
+    <div><img src="img/globecrop.png" style="width:100%;border:1px solid #b5b6c2" alt=""><p class="small" style="margin-top:1mm">the view turned</p></div>
     <div>
-      <p>The circle at the top left is the room <b>seen from above</b>. You are the black head in the middle, nose to
-      the front (up). Every sound in the play area appears here as a small square in its browser colours.</p>
-      <ul>
-        <li>The <b>angle</b> from you is the sound's direction, the same as its left–right place in the play area.</li>
-        <li>The <b>distance</b> from you is how far away it is. The rings mark a quarter, half, three quarters and the
-        whole of the range.</li>
-        <li>A short <b>stalk</b> up or down shows that the sound is above or below the horizon.</li>
-        <li>Far squares are drawn smaller. The selected sound has a red frame.</li>
-      </ul>
-      <p><b>Drag a square</b> in the plan view to set direction and distance at once. Its height stays as it was.</p>
-      <p><b>Turn the mouse wheel</b> over a sound, in the plan view or in the play area: up or away brings it nearer,
-      down or towards you sends it further. The sound is selected and its distance is shown in metres above its bar.</p>
+      <p style="margin-top:0">The globe at the top left is the space with you in the middle, the black head. Four rings on the
+      horizon mark a quarter, half, three quarters and the whole of the distance range; two circles run through
+      overhead. Every sound appears as a small square in its browser colours. Squares on the far side are faint.</p>
     </div>
   </div>
-  <h2>what distance changes</h2>
-  <p>Distance runs from 0 (at your head) to 1 (the outer ring). It is shown in metres as
-  <b>0.25 + 19.75 · d²</b>, so from 25 cm to 20 m. A new sound starts at about 2 m. Four things follow from it:</p>
+  <div class="cols">
+    <div>
+      <h2 style="margin-top:1mm">seen from above</h2>
+      <p>At first the globe is seen from above, front at the top. The angle from you is a sound's direction (its
+      left–right place in the play area), the distance from you its distance. A short stalk up or down shows that it is
+      above or below the horizon. <b>Drag a square</b> to set direction and distance at once; its height stays.</p>
+      <h2>turning the view</h2>
+      <p><b>Drag the empty globe</b> to turn it: sideways round the vertical, up and down to tip it, as far as a view from
+      the side. Only the picture turns, nothing you hear. A red <b>view turned</b> shows below it. Now <b>dragging a
+      square</b> moves the sound over its own shell: same distance, new direction and height, on the side facing you.
+      The view can be turned while the timeline plays.</p>
+    </div>
+    <div>
+      <h2 style="margin-top:1mm">turning the scene</h2>
+      <p><b>Shift-drag the empty globe</b> to turn the sound scene itself: everything you hear turns round you
+      (<b>Scene Turn</b>, −180° to 180°) and tips forward or back (<b>Scene Tilt</b>, −90° to 90°). The play area and the
+      globe keep showing the sounds where you put them; the head turns to show where the front of the scene now is,
+      and a red note gives <b>scene x° / y°</b>. Both are parameters, so a host can automate them.</p>
+      <p><b>Double-click</b> the empty globe to see it from above again; <b>shift-double-click</b> also sets the scene
+      turn and tilt back to 0.</p>
+      <p><b>Mouse wheel</b> over a sound, on the globe or in the play area: up or away brings it nearer, down sends it
+      further. The selected sound shows its distance in metres above its bar.</p>
+    </div>
+  </div>
+  <h1 style="margin-top:4mm"><span class="n">6</span>spatial meter</h1>
+  <div class="side">
+    <img src="img/meter.png" style="width:48mm" alt="">
+    <div>
+      <p style="margin-top:0">The grey squares of the frame round the play area are a meter of where the sound is. The
+      <b>row of 28</b> under the play area shows level by <b>direction</b>, with the same left–right layout as the play
+      area: behind, left, front, right, behind. The <b>column of 10</b> on its left shows level by <b>height</b>, from
+      below at the bottom to overhead at the top.</p>
+      <p>Colours: <b>grey</b> below −36 dB, <b>mustard</b> to −24 dB, <b>yellow</b> to −14 dB, <b>orange</b> to −6 dB,
+      <b>red</b> above.</p>
+      <p>The squares rise at once and fall by about 36 dB a second. Above the column, <b>peak −xx dB</b> gives the loudest
+      square. The meter includes the Master level.</p>
+    </div>
+  </div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>6</span></div>
+</section>
+
+<!-- ========== distance ========== -->
+<section class="page">
+  <h1><span class="n">7</span>distance</h1>
+  <h2 style="margin-top:0">what distance changes</h2>
+  <p>Distance runs from 0 (at your head) to 1 (the outer ring), shown as <b>0.25 + 19.75 · d²</b> metres: 25 cm to
+  20 m. A new sound starts at about 2 m. With the distance settings at their defaults (below):</p>
   <ul>
     <li><b>level</b>: 0 dB at your head, about −6 dB at 3 m, about −29 dB at the far edge.</li>
-    <li><b>width</b>: the two channels of a stereo loop are encoded as two points either side of its direction,
-    80° apart when near, 10° apart (almost a point) when far.</li>
+    <li><b>width</b>: the two channels of a stereo loop are encoded as two points either side of its direction, 80° apart
+    when near, 10° when far.</li>
     <li><b>brightness</b>: a low-pass filter, the air, closes from 18 kHz near you to 3.5 kHz at the far edge.</li>
-    <li><b>near field</b>: within the innermost 0.12 (about half a metre) the higher orders fade out, so the sound
-    loses its direction and surrounds you. At distance 0 it is inside your head.</li>
+    <li><b>near field</b>: within 0.12 (about half a metre) the higher orders fade out, so the sound loses its direction
+    and surrounds you.</li>
   </ul>
   <table>
     <tr><th class="num">distance</th><th class="num">metres</th><th class="num">level</th><th class="num">width</th><th class="num">air</th><th>direction</th></tr>
@@ -331,68 +373,89 @@
     <tr><td class="num">0.12</td><td class="num">0.53</td><td class="num">−1.7 dB</td><td class="num">72°</td><td class="num">17.6 kHz</td><td>full from here on</td></tr>
     <tr><td class="num">0.3</td><td class="num">2.03</td><td class="num">−4.6 dB</td><td class="num">59°</td><td class="num">15.5 kHz</td><td>a new sound</td></tr>
     <tr><td class="num">0.5</td><td class="num">5.19</td><td class="num">−8.7 dB</td><td class="num">45°</td><td class="num">12 kHz</td><td></td></tr>
-    <tr><td class="num">0.75</td><td class="num">11.4</td><td class="num">−15.9 dB</td><td class="num">28°</td><td class="num">7.2 kHz</td><td></td></tr>
     <tr><td class="num">1</td><td class="num">20</td><td class="num">−28.8 dB</td><td class="num">10°</td><td class="num">3.5 kHz</td><td>the outer ring</td></tr>
   </table>
-  <p>All gains glide over about 20 ms, so dragging and moving sounds never click. Distance is not a delay: there is
-  no Doppler shift and no echo of a room. Add a reverb after the decoder if you want one. Unlike openprocess, nothing is silent by position: to silence a sound, mute it or throw it away.</p>
-
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>6</span></div>
-</section>
-
-<!-- ========== motions + live input ========== -->
-<section class="page">
-  <h1><span class="n">6</span>motions</h1>
-  <img src="img/motions.png" style="width:110mm;border:1px solid #b5b6c2;margin:0 0 3mm" alt="">
-  <p>The four icons on red pointers at the top right are <b>motions</b>. They work like effects: <b>drag one onto a
-  sound</b> in the play area and it sticks to the sound as a small icon after its bar (after the effect icon, if it has
-  one). From then on the sound moves through the space by itself. A sound carries one motion at a time and one
-  effect at a time; the two are independent.</p>
-  <table>
-    <tr><th>motion</th><th>what the sound does</th><th>period</th></tr>
-    <tr><td><b>orbit</b></td><td>goes once all the way round you, turning to the left: front, left, behind, right, front.
-      Its height and distance stay the same. All orbiting sounds turn together and keep their spacing.</td><td>24 s</td></tr>
-    <tr><td><b>swing</b></td><td>swings to either side of its place, ±40°, like a pendulum.</td><td>8 s</td></tr>
-    <tr><td><b>rise</b></td><td>rises from its height up to straight overhead and sinks back, smoothly.</td><td>16 s</td></tr>
-    <tr><td><b>drift</b></td><td>wanders slowly round its place, sideways and up and down, a few tens of degrees,
-      never quite repeating.</td><td>slow, irregular</td></tr>
-  </table>
-  <ul>
-    <li><b>To remove a motion</b>, drag its icon off the sound, or drop the same motion on it again.
-    Dropping the icon on another sound moves the motion there.</li>
-    <li>The place where you put the sound is its <b>resting place</b>. The motion is added to it. Drag a moving sound and
-    you move its resting place; it carries on moving from where you let go.</li>
-    <li>Swing, rise and drift start at a different point of their cycle for each sound, so two sounds with the same
-    motion do not move in step.</li>
-    <li>Moving sounds move in the plan view too. Motions are stored in snapshots. On the timeline and in renders they
-    follow the composition's clock, so a piece moves the same way every time it plays.</li>
-  </ul>
-
-  <h1 style="margin-top:6mm"><span class="n">7</span>live input</h1>
+  <p class="small">Gains glide over about 20 ms. Distance is not a delay: no Doppler, no room echo.</p>
+  <h2>distance settings</h2>
   <div class="side">
-    <img src="img/live.png" style="width:13mm" alt="">
+    <img src="img/rails.png" style="width:30mm" alt="">
     <div>
-      <p>The red square marked <b>in</b>, right of the browser, is the audio input of the plug-in (or the app's audio
-      device). Its dot grows with the input level. <b>Drag it into the play area</b> and the input is placed in the
-      space like a loop: a black bar with white dashes, whose red line shows the level. It does not loop; you hear the
-      input as it comes in.</p>
+      <p style="margin-top:0">The six rails at the top right shape what distance does, for all sounds at once, and set the
+      speed of all motions. <b>Drag</b> along a rail to set it; <b>double-click</b> it for the default. All six are parameters a host can automate, and every snapshot stores them
+      (chapter 14). While the timeline plays, the rails show the values of the segment that is playing.</p>
     </div>
   </div>
-  <ul>
-    <li>Move it, set its distance in the plan view or with the mouse wheel, and give it a motion, as with any sound.
-    A stereo input is spread by distance like a stereo loop; a mono input feeds both sides.</li>
-    <li>Of the effects only <b>mute</b> and <b>solo</b> act on it; fades follow a loop, and the input has none.
-    It has no loop pointers.</li>
-    <li>It can be placed more than once, for example once near and once far, or once still and once orbiting.</li>
-    <li>It is stored in snapshots and plays on the timeline. A <b>render</b> has no input, so there it is silent:
-    record the input as a loop first with <i>capture input</i> (chapter 15) if it should be in the file.</li>
-  </ul>
+  <table style="font-size:8.4pt">
+    <tr><th>rail</th><th>what it does</th><th>default</th></tr>
+    <tr><td><b>rolloff</b></td><td>how fast the level falls with distance. 50 % is the table above. At 0 % the far edge is
+      only about 6 dB down; at 100 % a sound is 18 dB down at 5 m and practically silent (about −60 dB) from 11 m on.</td><td>50 %</td></tr>
+    <tr><td><b>air</b></td><td>how much top far sounds lose. 0 %: none. 50 %: 3.5 kHz at the far edge. 100 %: about 700 Hz.</td><td>50 %</td></tr>
+    <tr><td><b>spread</b></td><td>how wide a stereo sound is when near: 20° at 0 %, 80° at 50 %, 140° at 100 %. At the far edge every
+      sound is 10° wide.</td><td>50 %</td></tr>
+    <tr><td><b>blur</b></td><td>how much far sounds lose the sharpness of their direction. The higher orders are turned down with
+      distance, each order step to as little as 15 % at the far edge with blur at 100 %, so a far sound becomes broad and
+      vague, like a 1st-order image.</td><td>0 %</td></tr>
+    <tr><td><b>near</b></td><td>the near-field radius: inside it the higher orders fade and the sound surrounds you, inside your head
+      at 0. From 0 to 0.4 of the range, shown in metres (0.25 – 3.4 m).</td><td>0.5 m</td></tr>
+    <tr><td><b>motion speed</b></td><td>all motions faster or slower, ×0.1 to ×4, on top of each sound's own speed. It runs the motion
+      clock, so changing it never makes a sound jump.</td><td>×1.00</td></tr>
+  </table>
+
   <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>7</span></div>
+</section>
+
+<!-- ========== motions ========== -->
+<section class="page">
+  <h1><span class="n">8</span>motions</h1>
+  <img src="img/motions.png" style="width:80mm;border:1px solid #b5b6c2;margin:0 0 2mm" alt="">
+  <p>The twelve icons on red pointers at the top right are <b>motions</b>. <b>Drag one onto a sound</b> and it sticks as a
+  small icon after the bar. From then on the sound moves through the space by itself. One motion and one effect per sound.</p>
+  <table style="font-size:8.2pt">
+    <tr><th>motion</th><th>what the sound does</th><th>period at ×1</th></tr>
+    <tr><td><b>orbit</b></td><td>goes once all the way round you; height and distance stay</td><td>24 s a turn</td></tr>
+    <tr><td><b>swing</b></td><td>swings to either side of its place, ±40°, like a pendulum</td><td>8 s</td></tr>
+    <tr><td><b>rise</b></td><td>rises from its height to straight overhead and sinks back</td><td>16 s</td></tr>
+    <tr><td><b>drift</b></td><td>wanders slowly round its place, sideways and up and down, never quite repeating</td><td>slow</td></tr>
+    <tr><td><b>spiral</b></td><td>goes round you while climbing towards overhead and coming back down</td><td>20 s a turn, 40 s up and down</td></tr>
+    <tr><td><b>figure 8</b></td><td>draws a figure of eight about its place, about ±43° sideways and ±11° up and down</td><td>10 s</td></tr>
+    <tr><td><b>arc</b></td><td>rises over your head, comes down on the opposite side, and goes back the same way</td><td>14 s there and back</td></tr>
+    <tr><td><b>approach</b></td><td>comes up close to you (to a tenth of its distance) and goes back out</td><td>12 s</td></tr>
+    <tr><td><b>hop</b></td><td>jumps to a new place near its own (up to about ±54° sideways, ±20° in height), with a short glide</td><td>every 3 s</td></tr>
+    <tr><td><b>flutter</b></td><td>trembles quickly by a few degrees, sideways, up and down and in distance, like wings</td><td>4 – 10 times a second</td></tr>
+    <tr><td><b>boids</b></td><td>all sounds with boids form <b>one flock</b>: they keep together, keep a little apart, fly the same way,
+      are pulled back towards their own places and wander a little. Simulated as it plays, in renders too.</td><td>free</td></tr>
+    <tr><td><b>lorenz</b></td><td>follows its own stretch of the Lorenz attractor: the two wings swing it left and right, the other
+      axes change its height and distance. A quarter of Lorenz time per second.</td><td>about 3 s a wing, never repeating</td></tr>
+  </table>
+  <ul>
+    <li><b>Each sound runs its own motion.</b> It starts when you drop it on, from where the sound is, so nothing jumps.
+    Each copy has its own direction and slight differences of rate and path, so two sounds never move as one.</li>
+    <li><b>Speed:</b> turn the mouse wheel over the small motion icon on a sound. The speed goes from ×0.25 to ×4 and is
+    shown beside the icon (×1.5). Changing it does not make the sound jump. The <i>motion speed</i> rail (chapter 7) scales
+    all motions on top.</li>
+    <li><b>To remove a motion</b>, drag its icon off the sound, or drop the same motion on it again; the sound stays where it
+    is at that moment. Dropping the icon on another sound gives that sound a fresh copy. Drag a moving sound to move its resting place.</li>
+    <li>Motions and speeds are stored in snapshots; each timeline segment restarts them at its start (chapter 15), and a render starts them from the beginning.</li>
+  </ul>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>8</span></div>
 </section>
 
 <!-- ========== output & order ========== -->
 <section class="page">
-  <h1><span class="n">8</span>output and order</h1>
+  <h1><span class="n">9</span>live input</h1>
+  <div class="side">
+    <img src="img/live.png" style="width:13mm" alt="">
+    <div>
+      <p style="margin-top:0">The red square marked <b>in</b>, right of the browser, is the audio input of the plug-in (or the
+      app's audio device). Its dot grows with the input level. <b>Drag it into the play area</b> and the input is placed in
+      the space like a loop: a black bar with white dashes, whose red line shows the level. Move it, set its distance and give it a motion as with any sound. Of the effects only
+      <b>mute</b> and <b>solo</b> act on it. It can be placed more than once. It is stored in snapshots and plays on the
+      timeline, but a <b>render</b> has no input: record it as a loop first with <i>capture input</i> (chapter 17).</p>
+    </div>
+  </div>
+
+
+  <h1 style="margin-top:4mm"><span class="n">10</span>output and order</h1>
   <div class="side">
     <img src="img/order.png" style="width:50mm" alt="">
     <div>
@@ -409,7 +472,7 @@
         <tr><th class="num">order</th><th class="num">channels</th><th>where</th></tr>
         <tr><td class="num">1st</td><td class="num">4</td><td>all formats</td></tr>
         <tr><td class="num">2nd</td><td class="num">9</td><td>all formats</td></tr>
-        <tr><td class="num">3rd</td><td class="num">16</td><td>all formats; default; AU maximum</td></tr>
+        <tr><td class="num">3rd</td><td class="num">16</td><td>all; default; AU max.</td></tr>
         <tr><td class="num">4th</td><td class="num">25</td><td>VST3, VST2, LV2</td></tr>
         <tr><td class="num">5th</td><td class="num">36</td><td>VST3, VST2, LV2</td></tr>
         <tr><td class="num">6th</td><td class="num">49</td><td>VST3, VST2, LV2</td></tr>
@@ -420,31 +483,25 @@
     <div>
       <h2 style="margin-top:0">which order</h2>
       <p>Higher orders place sounds more sharply but need more channels and more speakers to pay off.
-      <b>1st order</b> is enough for a rough image and for many 360° video players. <b>3rd order</b> is a good
-      default for headphones and small rings. 5th to 7th suit large domes.</p>
+      <b>3rd order</b> is a good default for headphones and small rings; 5th to 7th suit large domes.</p>
       <p>If the track has fewer channels than the chosen order needs, opensphere sends the highest order that fits,
       and the label shows it: with 16 channels and 5th order chosen, 3rd order goes out.</p>
+      <h2>decoding</h2>
+  <p>Put the decoder directly after opensphere on the same track. Set it to the same order and to ACN / SN3D: binaural for headphones,
+  AllRAD or similar for speakers. A head-tracking rotator such as IEM <i>SceneRotator</i> goes between the two.</p>
+
     </div>
   </div>
   <h2>stereo preview</h2>
-  <p>On a stereo bus (Ableton Live, Logic, any 2-channel track) and in the standalone app, opensphere encodes at 1st
+  <p>On a stereo track (Ableton Live, Logic) and in the standalone app, opensphere encodes at 1st
   order and folds it to left and right: <b>W + Y</b> and <b>W − Y</b>, two virtual microphones pointing left and right.
-  You hear where sounds are to the left or right, their distance, width and motion. You do not hear height, and front
-  and back sound the same. The preview has a soft limiter; the Ambisonic output has none, so keep <i>Master</i> down
-  when many near sounds pile up.</p>
-  <h2>decoding</h2>
-  <p>Put the decoder directly after opensphere on the same track. Set it to the same order and to ACN / SN3D. A binaural
-  decoder gives headphone stereo; an AllRAD or similar decoder needs your speaker positions. If the decoder can turn the
-  sound field (or a head tracker can), a separate rotator plug-in such as IEM <i>SceneRotator</i> goes between the two.</p>
-  <div class="note">Hosts treat wide tracks differently. If you hear nothing, check that the track has at least 4 channels,
-  that the decoder reads the same number, and that its output goes to the master. In a stereo-only host the label reads
-  "stereo preview".</div>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>8</span></div>
+  You hear left and right, distance, width and motion, but not height, and front and back sound the same. Only the preview has a limiter: with many near sounds, keep <i>Master</i> down.</p>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>9</span></div>
 </section>
 
 <!-- ========== browser, effects, presets, operators ========== -->
 <section class="page">
-  <h1><span class="n">9</span>browser and loops</h1>
+  <h1><span class="n">11</span>browser and loops</h1>
   <div class="side">
     <img src="img/browser.png" style="width:40mm" alt="">
     <div>
@@ -458,7 +515,7 @@
     </div>
   </div>
 
-  <h1 style="margin-top:3mm"><span class="n">10</span>effects</h1>
+  <h1 style="margin-top:3mm"><span class="n">12</span>effects</h1>
   <div class="side">
     <img src="img/effects.png" style="width:15mm" alt="">
     <div>
@@ -477,7 +534,7 @@
     </div>
   </div>
 
-  <h1 style="margin-top:3mm"><span class="n">11</span>presets and logical operators</h1>
+  <h1 style="margin-top:3mm"><span class="n">13</span>presets and logical operators</h1>
   <div class="side">
     <img src="img/presets.png" style="width:30mm" alt="">
     <div>
@@ -486,7 +543,7 @@
       fragments (3–25 %). <b>Shift-click</b> adds instead of replacing.</p>
       <p>In opensphere, preset sounds are spread <b>all round you</b>, mostly a little above the horizon (from 15° below to
       40° above), between half a metre and about 10 m away. Each has a one-in-four chance of a fade and about a
-      one-in-three chance of a motion.</p>
+      one-in-three chance of one of the twelve motions.</p>
       <p>The two <b>logical operators</b> above the play area change everything at once:</p>
       <ul>
         <li><b>black scribble</b>: new loop lengths and start points for every sound, from 2 % to the whole sample.</li>
@@ -495,27 +552,28 @@
       </ul>
     </div>
   </div>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>9</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>10</span></div>
 </section>
 
 <!-- ========== snapshots + timeline ========== -->
 <section class="page">
-  <h1><span class="n">12</span>snapshots</h1>
+  <h1><span class="n">14</span>snapshots</h1>
   <div class="side">
-    <img src="img/snapshot.png" style="width:40mm" alt="">
+    <img src="img/snapshot.png" style="width:32mm" alt="">
     <div>
       <p>Click the yellow chequered <b>snapshot button</b> at the bottom of the play area and the whole scene is stored:
-      every sound with its direction, height, distance, loop, effect and motion, and any live input. The snapshot lines
-      up below as a <b>reel</b>, a black ring with a colour tag. There is room for <b>10 reels</b>.</p>
+      every sound (place, distance, loop, effect, motion and its speed), any live input, and the
+      <b>global settings</b>: the six rails and the scene turn and tilt. The snapshot lines up below as a <b>reel</b>, a
+      black ring with a colour tag. There is room for <b>10 reels</b>.</p>
       <ul>
         <li><b>Drag a reel onto the timeline</b> to use it in a composition.</li>
-        <li><b>Drag a reel back into the play area</b> to hear that scene again. It replaces what is there.</li>
+        <li><b>Drag a reel back into the play area</b> to hear that scene again. It replaces what is there and restores the rails and scene turn.</li>
         <li><b>Throw a reel out of the window</b> to delete it.</li>
       </ul>
     </div>
   </div>
 
-  <h1 style="margin-top:3mm"><span class="n">13</span>timeline</h1>
+  <h1 style="margin-top:3mm"><span class="n">15</span>timeline</h1>
   <img class="full" src="img/tlzoom.png" alt="" style="margin-bottom:2mm">
   <div class="cols">
     <div>
@@ -525,11 +583,12 @@
         <li><b>drag</b> a segment to move it, <b>drag its right end</b> to change its length</li>
         <li><b>alt-drag</b> to copy it, <b>drag it away</b> (off the bar) to delete it</li>
       </ul>
-      <p>Overlapping segments play together. Each keeps its own copy of the snapshot. Segments fade in and out over 30 ms.
+      <p>Overlapping segments play together. Each keeps its own copy of the snapshot and <b>plays with its own settings</b>:
+      its motions restart at the segment's start, at its motion speed, with its distance settings and scene turn. So motion
+      types, speeds, distance and scene turn can all be sequenced. Segments fade in and out over 30 ms.
       There is room for <b>256 segments</b>.</p>
       <h2>wheel</h2>
-      <p>The red crescent sets the <b>length of the composition, from 1 to 30 minutes</b>: drag up or right for longer. The
-      scale is logarithmic, in tenths of a minute at first and whole minutes above ten. Normally segments keep their
+      <p>The red crescent sets the <b>length of the composition, from 1 to 30 minutes</b>: drag up or right for longer. The scale is logarithmic. Normally segments keep their
       places relative to the whole and stretch with it. <b>Shift-drag the wheel</b> and they keep their times in seconds
       instead; only the end moves (segments past a shorter end are dropped).</p>
     </div>
@@ -549,12 +608,12 @@
 
     </div>
   </div>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>10</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>11</span></div>
 </section>
 
 <!-- ========== render, sounds, tools ========== -->
 <section class="page">
-  <h1><span class="n">14</span>render to file</h1>
+  <h1><span class="n">16</span>render to file</h1>
   <p><i>render to file</i> (tools, ↓) writes the piece as an <b>AmbiX WAV</b>: 48 kHz, 24-bit, ACN / SN3D, with as many
   channels as the chosen order has, whatever the host or the app is playing. If the timeline has segments, the render
   runs from the play flag to the end of the composition; if not, it records the play area for the length set on the wheel.
@@ -569,11 +628,11 @@
     <tr><td class="num">3rd</td><td class="num">16</td><td class="num">138 MB</td><td class="num">4.1 GB</td></tr>
     <tr><td class="num">5th</td><td class="num">36</td><td class="num">311 MB</td><td class="num">9.3 GB</td></tr>
     <tr><td class="num">7th</td><td class="num">64</td><td class="num">553 MB</td><td class="num">16.6 GB</td></tr>
-  </table></div><div><p class="small">The live input is not part of a render (chapter 7). Motions follow the composition's clock, so the same
+  </table></div><div><p class="small">The live input is not part of a render (chapter 9). Motions start from the beginning and the boids flock is simulated in the render, so the same
   piece renders the same way each time. A 30-minute piece at 3rd order is just under 4 GB, an ordinary WAV;
   at 4th order and above it becomes RF64.</p></div></div>
 
-  <h1 style="margin-top:4mm"><span class="n">15</span>sounds and tools</h1>
+  <h1 style="margin-top:4mm"><span class="n">17</span>sounds and tools</h1>
   <div class="side">
     <img src="img/tools.png" style="width:26mm" alt="">
     <div>
@@ -583,8 +642,8 @@
         <tr><td>▦ &nbsp;built-in sounds</td><td>restore the synthesized bank</td></tr>
         <tr><td>⋀⋀ &nbsp;skip again</td><td>re-chop the selected square with a new pattern</td></tr>
         <tr><td>● &nbsp;capture input</td><td>the last 8 s of input, silence trimmed, into the selected square; saved in <code>~/Music/opensphere/captures</code></td></tr>
-        <tr><td>↓ &nbsp;render to file</td><td>write an AmbiX WAV (chapter 14)</td></tr>
-        <tr><td>× &nbsp;clear</td><td>empty the play area</td></tr>
+        <tr><td>↓ &nbsp;render to file</td><td>write an AmbiX WAV (chapter 16)</td></tr>
+        <tr><td>× &nbsp;clear</td><td>empty the play area. <b>Shift-click</b>: clear everything (play area, reels and timeline) for a new piece</td></tr>
       </table>
     </div>
   </div>
@@ -599,28 +658,27 @@
     <li><b>Drop a single file onto one square</b> to replace only that square (first 30 seconds, unchopped).</li>
     <li>Formats: WAV, AIFF, FLAC, Ogg Vorbis, MP3, plus M4A/CAF on the Mac. A session remembers where its files are, not the audio.</li>
   </ul>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>11</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>12</span></div>
 </section>
 
 <!-- ========== help, midi ========== -->
 <section class="page">
-  <h1><span class="n">16</span>help and demo</h1>
-  <img class="full" src="img/helpbox1.png" alt="" style="width:95mm">
+  <h1><span class="n">18</span>help and demo</h1>
+  <img class="full" src="img/helpbox2.png" alt="" style="width:78mm">
   <p>The three <b>?</b> marks next to the word mark open help without stopping the sound:</p>
   <ul>
-    <li><span class="tag o">?</span> orange: the <b>guide</b>, the labels on the cover of this manual ("seen from above:
-    drag = distance", "drag motions onto sounds", "live input", "round to the left" …). Click again to hide them.</li>
-    <li><span class="tag" style="background:#d8b020">?</span> yellow: <b>the space</b> (above): the play area, plan view,
-    motions, effects and live input.</li>
-    <li><span class="tag" style="background:#2a2a2a;color:#fff">?</span> black: <b>snapshots, timeline, output</b>: reels,
-    the timeline and wheel, the Ambisonic output, decoders and the stereo preview, render and MIDI.</li>
+    <li><span class="tag o">?</span> orange: the <b>guide</b>, the labels on the cover of this manual ("drag sounds; drag around
+    it to turn the view", "shift-drag turns the scene itself", "drag motions onto sounds", "distance, motion speed",
+    "live input" …). Click again to hide them.</li>
+    <li><span class="tag" style="background:#d8b020">?</span> yellow: <b>the space</b>: the play area, the globe, the mouse
+    wheel, motions and their speed, rails, effects, the live input and the meter.</li>
+    <li><span class="tag" style="background:#2a2a2a;color:#fff">?</span> black: <b>snapshots, timeline, output</b> (above).</li>
   </ul>
-  <p><b>Click the word mark</b> to start the <b>demo</b>. A cursor works through the functions on its own: it drags sounds,
-  applies effects, uses presets and operators, takes snapshots, arranges and plays them. <b>Any click ends the demo</b>
-  and puts back exactly what you had. The standalone app starts the demo by itself after three minutes without input
+  <p><b>Click the word mark</b> to start the <b>demo</b>. A cursor works through the functions on its own. <b>Any click ends
+  the demo</b> and puts back exactly what you had. The standalone app starts it by itself after three minutes without input
   when the play area is empty.</p>
 
-  <h1 style="margin-top:5mm"><span class="n">17</span>midi and parameters</h1>
+  <h1 style="margin-top:4mm"><span class="n">19</span>midi and parameters</h1>
   <div class="cols">
     <div>
       <table>
@@ -630,55 +688,64 @@
         <tr><td>A1</td><td>45</td><td>operator: places</td></tr>
         <tr><td>A♯1</td><td>46</td><td>snapshot</td></tr>
         <tr><td>B1</td><td>47</td><td>timeline play / stop</td></tr>
-        <tr><td>C2 – D♯7</td><td>48 – 111</td><td>browser squares 1 – 64: add, or remove if already playing</td></tr>
+        <tr><td>C2 – D♯7</td><td>48 – 111</td><td>browser squares 1 – 64: add, or remove if playing</td></tr>
       </table>
       <p class="small">Middle C = C3. Notes act on note-on; velocity and note-off are ignored. While the timeline plays,
       only B1 has an effect. A square added by MIDI goes to a random direction, from 10° below to 40° above, 2 m away.</p>
     </div>
     <div>
-      <table>
+      <table style="font-size:8.3pt">
         <tr><th>parameter</th><th>range</th><th>default</th></tr>
         <tr><td>Master</td><td>0 – 1</td><td>0.8</td></tr>
-        <tr><td>Input Thru</td><td>0 – 1</td><td>0</td></tr>
+        <tr><td>Input Thru</td><td>0 – 1</td><td>0 (ignored)</td></tr>
         <tr><td>Ambisonic Order</td><td>1st – 7th</td><td>3rd</td></tr>
+        <tr><td>Distance Rolloff</td><td>0 – 100 %</td><td>50 %</td></tr>
+        <tr><td>Distance Air</td><td>0 – 100 %</td><td>50 %</td></tr>
+        <tr><td>Near Spread</td><td>0 – 100 %</td><td>50 %</td></tr>
+        <tr><td>Distance Blur</td><td>0 – 100 %</td><td>0 %</td></tr>
+        <tr><td>Near Field</td><td>0 – 0.4</td><td>0.12</td></tr>
+        <tr><td>Motion Speed</td><td>×0.1 – ×4</td><td>×1</td></tr>
+        <tr><td>Scene Turn</td><td>−180° – 180°</td><td>0°</td></tr>
+        <tr><td>Scene Tilt</td><td>−90° – 90°</td><td>0°</td></tr>
       </table>
-      <p><b>Master</b> scales everything that goes out and into renders. <b>Ambisonic Order</b> is the same as the seven
-      squares; it can be automated, though a decoder rarely follows a change of order mid-piece.</p>
-      <p><b>Input Thru</b> is kept so that sessions and automation match openprocess, but opensphere ignores it: the input
-      is heard only where you place it (chapter 7).</p>
     </div>
   </div>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>12</span></div>
+  <p>All can be automated. <b>Master</b> scales everything that goes out and into renders. <b>Ambisonic Order</b> is the
+  same as the seven squares. The next six are the rails
+  (chapter 7), the last two the scene turn on the globe (chapter 5). <b>Input Thru</b> is kept so that sessions match
+  openprocess, but opensphere ignores it: the input is heard only where you place it (chapter 9).</p>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>13</span></div>
 </section>
 
 <!-- ========== reference ========== -->
 <section class="page">
-  <h1><span class="n">18</span>reference</h1>
-  <table style="font-size:8.3pt">
+  <h1><span class="n">20</span>reference</h1>
+  <table style="font-size:8pt;margin-bottom:2mm">
     <tr><th>item</th><th>value</th></tr>
     <tr><td>browser</td><td>64 loops (8 rows × 8 columns), 0.5 – 9 s each</td></tr>
     <tr><td>sounds in the play area</td><td>up to 24, live inputs included</td></tr>
     <tr><td>direction</td><td>play area left → right: behind, left, front, right, behind (once round you)</td></tr>
     <tr><td>height</td><td>play area bottom → top: −45° to +90°; horizon one third up</td></tr>
     <tr><td>distance</td><td>0 – 1, shown as 0.25 – 20 m (0.25 + 19.75 · d²); new sounds 2 m</td></tr>
-    <tr><td>level by distance</td><td>0 dB at your head, −6 dB at about 3 m, −29 dB at 20 m</td></tr>
-    <tr><td>width of a stereo sound</td><td>80° near → 10° far</td></tr>
-    <tr><td>air</td><td>low-pass 18 kHz near → 3.5 kHz far</td></tr>
-    <tr><td>near field</td><td>higher orders fade below distance 0.12 (about 0.5 m)</td></tr>
-    <tr><td>gain smoothing</td><td>about 20 ms</td></tr>
-    <tr><td>motions</td><td>orbit 24 s once round · swing ±40°, 8 s · rise to overhead and back, 16 s · drift slow wander</td></tr>
+    <tr><td>level by distance</td><td>rolloff 50 %: 0 dB at your head, −6 dB at about 3 m, −29 dB at 20 m</td></tr>
+    <tr><td>width of a stereo sound</td><td>near 20° – 140° (spread; 80° at 50 %) → 10° far</td></tr>
+    <tr><td>air</td><td>low-pass 18 kHz near → 3.5 kHz far at 50 % (700 Hz at 100 %)</td></tr>
+    <tr><td>blur</td><td>higher orders turned down with distance, to 15 % per order step at 100 %</td></tr>
+    <tr><td>near field</td><td>higher orders fade inside 0 – 0.4 (default 0.12, about 0.5 m)</td></tr>
+    <tr><td>scene rotation</td><td>turn −180° – 180°, tilt −90° – 90°; the globe view turns separately</td></tr>
+        <tr><td>motions</td><td>12: orbit 24 s · swing ±40°, 8 s · rise 16 s · drift · spiral 20 s / 40 s · figure 8 10 s · arc 14 s ·
+      approach 12 s · hop 3 s · flutter · boids (one flock) · lorenz; own speed ×0.25 – ×4, global ×0.1 – ×4</td></tr>
+    <tr><td>spatial meter</td><td>28 directions × 10 heights in the frame; −36 / −24 / −14 / −6 dB steps; falls 36 dB/s</td></tr>
     <tr><td>output format</td><td>Ambisonics, ACN / SN3D (AmbiX), no Condon–Shortley phase</td></tr>
     <tr><td>order</td><td>1st – 7th (4 – 64 channels), default 3rd; AU up to 3rd (16)</td></tr>
     <tr><td>stereo preview</td><td>1st order folded to W + Y / W − Y; stereo buses and the standalone app</td></tr>
-    <tr><td>input</td><td>stereo or mono; capture (last 8 s) and the live input</td></tr>
-    <tr><td>snapshots</td><td>up to 10</td></tr>
+        <tr><td>snapshots</td><td>up to 10; with motions, speeds, rails and scene turn</td></tr>
     <tr><td>timeline segments</td><td>up to 256; new segments 20 s</td></tr>
     <tr><td>composition length</td><td>1 – 30 minutes; the timeline zooms to 10 s</td></tr>
     <tr><td>render</td><td>WAV, 48 kHz, 24-bit, AmbiX at the chosen order, streamed to disk, RF64 over 4 GB</td></tr>
     <tr><td>user folder</td><td><code>~/Music/opensphere</code></td></tr>
-    <tr><td>saved with the session</td><td>play area (with distances and motions), snapshots, timeline, length, flag, how each square was made, parameters</td></tr>
-    <tr><td>window</td><td>1000 × 720 at 100 %, resizable 60 – 160 %</td></tr>
-    <tr><td>plug-in code</td><td><code>OpSp</code> (openprocess and opensphere can be used side by side)</td></tr>
+    <tr><td>saved with the session</td><td>play area (with distances, motions and speeds), snapshots, timeline, length, flag, how each square was made, parameters</td></tr>
+        <tr><td>plug-in code</td><td><code>OpSp</code> (openprocess and opensphere can be used side by side)</td></tr>
   </table>
   <p class="small"><b>Decoders that read opensphere directly:</b> IEM Plug-in Suite (BinauralDecoder, AllRADecoder, SimpleDecoder, SceneRotator, up to 7th order) ·
   SPARTA (AmbiBIN, AmbiDEC, Rotator) · any player or decoder that reads AmbiX (ACN / SN3D) files.</p>
@@ -688,7 +755,7 @@
   Ars Electronica archive · Oval, "Ovalprocess", <i>Leonardo</i> 35/5, 2002 · Sam Inglis, "Markus Popp: Music As Software",
   <i>Sound On Sound</i>, October 2002 · Marc Weidenbaum, interview with Markus Popp, Disquiet / Pulse!, 1996.
   opensphere is an independent homage. It is not made, endorsed or distributed by Markus Popp or Oval.</p>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>13</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>14</span></div>
 </section>
 
 </body>
