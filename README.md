@@ -1,3 +1,5 @@
+<p align="center"><img src="openprocess/Resources/icon/openprocess_1024.png" width="96" alt="openprocess icon">&nbsp;&nbsp;<img src="openprocess/Resources/icon/opensphere_1024.png" width="96" alt="opensphere icon">&nbsp;&nbsp;<img src="quell/Resources/icon/icon_1024.png" width="96" alt="quell icon"></p>
+
 # poppsphere bundle
 
 Three instruments and effects in one download, for **macOS, Windows and Linux**, each with a PDF manual.
