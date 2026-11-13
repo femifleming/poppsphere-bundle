@@ -199,7 +199,7 @@ int main (int argc, char** argv)
         {
             auto shot = [&] (juce::Component& c, const juce::String& name) {
                 juce::PNGImageFormat png;
-                auto img = c.createComponentSnapshot (c.getLocalBounds(), false, 1.0f);
+                auto img = c.createComponentSnapshot (c.getLocalBounds(), false, 2.0f);
                 juce::FileOutputStream os (shotDir.getChildFile (name + ".png"));
                 os.setPosition (0); os.truncate();
                 png.writeImageToStream (img, os);

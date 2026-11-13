@@ -42,6 +42,8 @@ render to file (16-bit WAV of the timeline, or of the play area if the timeline 
 MIDI: C1–G1 presets, G#1 / A1 logical operators, A#1 snapshot, B1 timeline play/stop, C2 upwards toggle the 64 cells.
 Parameters: Master, Input Thru.
 
+Manual: [docs/manual/openprocess Manual.pdf](docs/manual/openprocess%20Manual.pdf) (source `docs/manual/manual.html`, printed with headless Chrome).
+
 ## Build
 
 ```

@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>openprocess manual</title>
+<style>
+  @page { size: A4; margin: 0; }
+  :root {
+    --blue: #3478d4; --blue-top: #3c88e2; --blue-bottom: #2c5fc0;
+    --tag: #c8c9d1; --ink: #1e1e1e; --red: #d42a24; --mustard: #c4a232;
+    --orange: #e08a1e; --yellow: #f2d41f; --grey: #5a5b66;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; color: var(--ink);
+    font-family: Verdana, "DejaVu Sans", sans-serif; font-size: 9.6pt; line-height: 1.55;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { width: 210mm; height: 297mm; padding: 18mm 18mm 16mm; position: relative; overflow: hidden;
+    page-break-after: always; break-after: page; }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+  .folio { position: absolute; bottom: 9mm; left: 18mm; right: 18mm; display: flex; justify-content: space-between;
+    font-weight: bold; font-size: 7.5pt; letter-spacing: .08em; color: var(--grey); }
+  .folio .mark { font-family: "Times New Roman", serif; font-weight: normal; font-size: 11pt; letter-spacing: 0; }
+  .mark .o { color: #2f2f2f; } .mark .p { color: #c8102e; }
+
+  /* cover */
+  .cover { background: linear-gradient(var(--blue-top), var(--blue-bottom)); color: #fff; padding: 22mm 18mm; }
+  .cover .word { font-family: "Times New Roman", serif; font-size: 64pt; line-height: 1; margin: 18mm 0 4mm;
+    background: #fff; display: inline-block; padding: 3mm 6mm 4mm; }
+  .cover .sub { display: inline-block; background: var(--tag); color: var(--ink); font-weight: bold;
+    letter-spacing: .1em; padding: 1.2mm 4mm; font-size: 11pt; }
+  .cover img.shot { width: 100%; margin-top: 14mm; border: 3px solid #fff; box-shadow: 0 2mm 6mm rgba(0,0,0,.25); }
+  .cover .meta { position: absolute; bottom: 18mm; left: 18mm; right: 18mm; font-weight: bold; font-size: 8.5pt;
+    letter-spacing: .08em; display: flex; justify-content: space-between; }
+  .cover .tri { position: absolute; right: 18mm; top: 26mm; width: 0; height: 0;
+    border-top: 14mm solid transparent; border-bottom: 14mm solid transparent; border-left: 24mm solid var(--red); }
+  .cover .tri2 { position: absolute; right: 12mm; top: 32mm; width: 0; height: 0; opacity: .6;
+    border-top: 14mm solid transparent; border-bottom: 14mm solid transparent; border-left: 24mm solid #a8dcff; }
+
+  h1, h2 { font-weight: bold; letter-spacing: .1em; text-transform: lowercase; margin: 0; }
+  h1 { background: var(--tag); font-size: 13pt; padding: 1.6mm 4mm; margin: 0 0 5mm; position: relative; }
+  h1::after { content: ""; position: absolute; right: -9mm; top: 0; border-top: 4.6mm solid transparent;
+    border-bottom: 4.6mm solid transparent; border-left: 8mm solid var(--red); }
+  h1 .n { color: var(--red); margin-right: 3mm; }
+  h2 { font-size: 10pt; margin: 5mm 0 1.5mm; display: inline-block; border-bottom: 2.5px solid var(--yellow); }
+  p { margin: 0 0 2.6mm; }
+  .lead { font-size: 10.5pt; }
+  ul, ol { margin: 0 0 3mm; padding-left: 5mm; }
+  li { margin-bottom: 1.2mm; }
+  b.k, .k { font-weight: bold; }
+  .tag { display: inline-block; background: var(--tag); font-weight: bold; letter-spacing: .06em; padding: 0 2mm; font-size: 8.5pt; }
+  .tag.o { background: var(--orange); }
+  code { font-family: Menlo, monospace; font-size: 8.5pt; background: #eef0f6; padding: 0 1mm; }
+  table { border-collapse: collapse; width: 100%; margin: 1mm 0 4mm; font-size: 8.8pt; }
+  th { text-align: left; background: var(--tag); padding: 1.2mm 2mm; letter-spacing: .06em; text-transform: lowercase; }
+  td { padding: 1.1mm 2mm; border-bottom: 1px solid #d6d7df; vertical-align: top; }
+  img { display: block; }
+  .full { width: 100%; border: 1px solid #b5b6c2; margin: 2mm 0 4mm; }
+  .side { display: grid; grid-template-columns: auto 1fr; gap: 6mm; align-items: start; margin-bottom: 3mm; }
+  .side img { border: 1px solid #b5b6c2; }
+  .note { border-left: 4px solid var(--red); background: #f4f5f9; padding: 2mm 3.5mm; margin: 3mm 0; font-size: 9pt; }
+  .quote { border-left: 4px solid var(--mustard); padding: 1mm 4mm; margin: 3mm 0; font-family: "Times New Roman", serif;
+    font-size: 12pt; line-height: 1.4; }
+  .quote small { display: block; font-family: Verdana, sans-serif; font-size: 7.5pt; color: var(--grey); margin-top: 1mm; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 7mm; }
+  .chip { display: inline-block; width: 3.2mm; height: 3.2mm; vertical-align: -0.4mm; margin-right: 1.5mm; border: 2px solid; position: relative; }
+  .legend { counter-reset: n; list-style: none; padding: 0; columns: 2; column-gap: 7mm; }
+  .legend li { break-inside: avoid; }
+  .legend li::before { counter-increment: n; content: counter(n); display: inline-block; width: 5mm; height: 5mm;
+    margin-right: 2mm; background: var(--red); color: #fff; font-weight: bold; font-size: 7.5pt; text-align: center; line-height: 5mm; }
+  .shotwrap { position: relative; }
+  .pin { position: absolute; width: 5.5mm; height: 5.5mm; background: var(--red); color: #fff; font-weight: bold;
+    font-size: 7.5pt; text-align: center; line-height: 5.5mm; border: 1.5px solid #fff; transform: translate(-50%, -50%); }
+  .toc { list-style: none; padding: 0; columns: 2; column-gap: 8mm; }
+  .toc li { display: flex; gap: 2mm; border-bottom: 1px dotted #b5b6c2; padding: .6mm 0; }
+  .toc li span:first-child { color: var(--red); font-weight: bold; width: 7mm; }
+</style>
+</head>
+<body>
+
+<!-- ========== cover ========== -->
+<section class="page cover">
+  <div class="tri2"></div><div class="tri"></div>
+  <div class="word mark"><span class="o">open</span><span class="p">process</span></div><br>
+  <span class="sub">manual &nbsp;·&nbsp; version 1.0</span>
+  <img class="shot" src="img/guide.png" alt="">
+  <div class="meta"><span>vst3 · vst2 · au · standalone</span><span>november 2026</span></div>
+</section>
+
+<!-- ========== contents + about ========== -->
+<section class="page">
+  <h1><span class="n">0</span>contents</h1>
+  <ol class="toc">
+    <li><span>1</span>about openprocess</li>
+    <li><span>2</span>installing and starting</li>
+    <li><span>3</span>the screen</li>
+    <li><span>4</span>the browser</li>
+    <li><span>5</span>the play area</li>
+    <li><span>6</span>effects</li>
+    <li><span>7</span>presets</li>
+    <li><span>8</span>logical operators</li>
+    <li><span>9</span>snapshots</li>
+    <li><span>10</span>timeline</li>
+    <li><span>11</span>sounds</li>
+    <li><span>12</span>render, capture, tools</li>
+    <li><span>13</span>help and demo</li>
+    <li><span>14</span>midi and parameters</li>
+    <li><span>15</span>reference</li>
+  </ol>
+
+  <h1 style="margin-top:9mm"><span class="n">1</span>about openprocess</h1>
+  <p class="lead">openprocess is a loop workspace. You drag sounds into a window, they loop, and you keep
+  changing them while they play. You store what you hear as snapshots and lay those out on a timeline.
+  It has no notes, scales, tempo or bars.</p>
+  <p>It is modelled on <b>ovalprocess</b> (2000) by Markus Popp, who records as Oval. Programmer Richard Ross wrote
+  it for Popp. ovalprocess was software, a series of CDs, a lecture and three public sound terminals built with the
+  Berlin architects skotoparc. It ran on a PowerMac in an illuminated Plexiglas terminal with a trackpad, open to
+  anyone walking past. openprocess follows the operating manual of that installation: the same screen, from top to
+  bottom, and the same rules.</p>
+  <div class="quote">"Ovalprocess is a model of how I work."
+    <small>Markus Popp, Sound On Sound, 2002</small></div>
+  <h2>the rules it keeps</h2>
+  <ul>
+    <li><b>Everything loops.</b> Sounds never stop by themselves. You change their order and structure while you hear them.</li>
+    <li><b>Real time.</b> Every change is heard at once. The one exception is timeline playback, when nothing can be edited.</li>
+    <li><b>Top to bottom.</b> Pick sounds in the browser, work on them in the play area, then build a piece from snapshots on the timeline.</li>
+    <li><b>Only symbols.</b> No typing, no dialog boxes, no musical units. You grab, drag, drop and throw away colour-coded objects.</li>
+  </ul>
+  <div class="note">The original Oval sound archive is not part of openprocess. Its 64 built-in loops are synthesized
+  and chopped like a skipping CD. Your own files can be chopped the same way (chapter 11).</div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>2</span></div>
+</section>
+
+<!-- ========== install + screen ========== -->
+<section class="page">
+  <h1><span class="n">2</span>installing and starting</h1>
+  <table>
+    <tr><th>format</th><th>installed at</th></tr>
+    <tr><td>VST3</td><td><code>~/Library/Audio/Plug-Ins/VST3/openprocess.vst3</code></td></tr>
+    <tr><td>VST2</td><td><code>~/Library/Audio/Plug-Ins/VST/openprocess.vst</code></td></tr>
+    <tr><td>Audio Unit</td><td><code>~/Library/Audio/Plug-Ins/Components/openprocess.component</code></td></tr>
+    <tr><td>standalone</td><td><code>~/Applications/openprocess.app</code></td></tr>
+  </table>
+  <p><b>In a DAW</b>, load openprocess on an instrument track. It plays as soon as something is in the play area,
+  whether or not the transport is running. It has nothing to do with the song tempo. It has a stereo audio input,
+  which only <i>capture input</i> and <i>Input Thru</i> use. Hosts that offer a side-chain input for instruments can feed it there.</p>
+  <p><b>The standalone app</b> uses the audio device set under <i>Options → Audio/MIDI Settings</i>. It asks for
+  microphone access the first time, for the capture function. Your work is saved when you quit and is back
+  when you start again.</p>
+  <p>The window can be resized from its lower right corner, from 600 to 1600 pixels wide. The proportions stay fixed.</p>
+  <h2 style="margin-top:4mm">quick start</h2>
+  <ol>
+    <li>Click a bracket on the left. Something plays.</li>
+    <li>Click the black scribble a few times. Loop lengths change.</li>
+    <li>Drag a fade onto one sound and pull another sound down to make it softer.</li>
+    <li>Click the yellow snapshot button. Do it again after changing things.</li>
+    <li>Drag both reels onto the timeline, one after the other.</li>
+    <li>Click the red flag.</li>
+  </ol>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>3</span></div>
+</section>
+
+<section class="page">
+
+  <h1><span class="n">3</span>the screen</h1>
+  <div class="shotwrap">
+    <img class="full" src="img/main.png" alt="">
+    <div class="pin" style="left:39.6%;top:15.8%">1</div>
+    <div class="pin" style="left:59%;top:58%">2</div>
+    <div class="pin" style="left:93.8%;top:44%">3</div>
+    <div class="pin" style="left:7%;top:57%">4</div>
+    <div class="pin" style="left:77%;top:24.5%">5</div>
+    <div class="pin" style="left:70.4%;top:78%">6</div>
+    <div class="pin" style="left:44.6%;top:86.4%">7</div>
+    <div class="pin" style="left:59%;top:92.3%">8</div>
+    <div class="pin" style="left:21.6%;top:90%">9</div>
+    <div class="pin" style="left:18.6%;top:82.6%">10</div>
+    <div class="pin" style="left:93%;top:87%">11</div>
+  </div>
+  <ol class="legend">
+    <li>browser: 8 × 8 loops</li>
+    <li>play area: panorama and volume</li>
+    <li>effects</li>
+    <li>presets</li>
+    <li>logical operators</li>
+    <li>snapshot button</li>
+    <li>snapshots (reels)</li>
+    <li>timeline with play flag</li>
+    <li>composition length wheel</li>
+    <li>help marks · demo (word mark)</li>
+    <li>tools</li>
+  </ol>
+  <p>Messages such as "loaded 12 files" or "the play area is full" appear for a few seconds in a grey tag at the top left.</p>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>4</span></div>
+</section>
+
+<!-- ========== browser + play area ========== -->
+<section class="page">
+  <h1><span class="n">4</span>the browser</h1>
+  <div class="side">
+    <img src="img/browser.png" style="width:52mm" alt="">
+    <div>
+      <p>The browser holds the sound material: 64 loops in an 8 × 8 grid. The outer colour of a square shows its
+      <b>row</b>, the family of sounds. The inner colour tells the columns apart.</p>
+      <p><b>Drag a square into the play area</b> and let go. The sound starts looping at that spot. Outlined squares
+      trail behind it as you drag. The same loop can be dragged in several times.</p>
+      <p><b>Click a square</b> without dragging to select it (black frame). The <i>skip again</i> and
+      <i>capture input</i> tools work on the selected square.</p>
+      <p>A pale square is still being made, for example just after loading files.</p>
+    </div>
+  </div>
+
+  <h1 style="margin-top:4mm"><span class="n">5</span>the play area</h1>
+  <img class="full" src="img/playarea.png" alt="">
+  <div class="cols">
+    <div>
+      <p>The dotted white window is where sounds play. A sound's position sets two things:</p>
+      <ul>
+        <li><b>left ↔ right</b>: the stereo panorama</li>
+        <li><b>top ↔ bottom</b>: loud ↔ soft. The bottom edge is silent.</li>
+      </ul>
+      <p>Each sound is drawn as a coloured bar. The bar's length shows how long its loop is. A black vertical
+      <b>pointer</b> runs across the bar from left to right as the loop plays, again and again.</p>
+      <p><b>Drag a bar</b> to move the sound. The change is heard as you move.</p>
+      <p><b>Throw a sound away</b> by dragging it out of the play area. It stops.</p>
+    </div>
+    <div>
+      <h2 style="margin-top:0">loop length</h2>
+      <p><b>Click a bar</b> to select it. Its name appears above it. Below it, a grey strip stands for the whole
+      sample, with <b>two red pointers</b>. The part between them is what loops. Drag the left pointer to move the
+      start and the right pointer to move the end. A very short loop turns any sound into a buzz or a click
+      pattern, the classic Oval texture.</p>
+      <p>Loop ends are crossfaded over about 6 ms so that they stay smooth.</p>
+      <p>Click on an empty part of the play area to deselect.</p>
+      <p>Up to <b>24 sounds</b> can play at once.</p>
+    </div>
+  </div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>5</span></div>
+</section>
+
+<!-- ========== effects, presets, operators ========== -->
+<section class="page">
+  <h1><span class="n">6</span>effects</h1>
+  <div class="side">
+    <img src="img/effects.png" style="width:24mm" alt="">
+    <div>
+      <p>The five effects are on the right edge. <b>Drag one onto a sound</b> in the play area. It sticks to the sound
+      as a small icon at the end of its bar. Each sound carries one effect at a time, and a new one replaces the old.</p>
+      <table>
+        <tr><th>icon (top to bottom)</th><th>effect</th></tr>
+        <tr><td>black in the middle</td><td><b>fade in / out</b>: volume rises, then falls, over each loop</td></tr>
+        <tr><td>white → black</td><td><b>fade in</b>: rises over each loop</td></tr>
+        <tr><td>black → white</td><td><b>fade out</b>: falls over each loop</td></tr>
+        <tr><td>black dot</td><td><b>mute</b>: the sound keeps running, silently</td></tr>
+        <tr><td>white dot</td><td><b>solo</b>: only sounds marked solo are heard</td></tr>
+      </table>
+      <p>Fades follow the loop, so short loops with a fade turn into pulses. Muted or soloed-out sounds are drawn faded,
+      and their pointers keep running.</p>
+      <p><b>To remove an effect</b>, drag its icon off the sound, or drop the same effect on it again.
+      Dropping the icon on another sound moves the effect there.</p>
+    </div>
+  </div>
+
+  <h1 style="margin-top:3mm"><span class="n">7</span>presets</h1>
+  <div class="side">
+    <img src="img/presets.png" style="width:30mm" alt="">
+    <div>
+      <p>The eight brackets on the left are presets. <b>Click one</b> and the play area fills with 3 to 5 sounds,
+      flying in from the bracket. Each bracket has a sorted pool: mostly sounds from one browser row, with some from
+      two related rows. <b>Which sounds, where and how long is never the same twice.</b> Click again for another version.</p>
+      <ul>
+        <li>The <b>first, third, fifth and seventh</b> brackets use long parts of the samples, 40–100 %.</li>
+        <li>The <b>second, fourth, sixth and eighth</b> use tiny fragments, 3–25 %.</li>
+        <li>Each sound has a one-in-four chance of getting a fade.</li>
+      </ul>
+      <p>A click replaces what is in the play area. <b>Shift-click</b> adds to it instead.</p>
+    </div>
+  </div>
+
+  <h1 style="margin-top:3mm"><span class="n">8</span>logical operators</h1>
+  <div class="side">
+    <img src="img/operators.png" style="width:58mm" alt="">
+    <div>
+      <p>Above the play area on the right are two buttons that change everything in the play area at once, by chance.</p>
+      <p><b>Left (black scribble)</b>: new random loop lengths and start points for every sound, from 2 % to the whole sample.</p>
+      <p><b>Right (grey grid)</b>: new random positions, which is new panorama and volume for every sound.
+      The sounds glide to their new places.</p>
+      <p>Use them as often as you like, one after the other or in turn.</p>
+    </div>
+  </div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>6</span></div>
+</section>
+
+<!-- ========== snapshots + timeline ========== -->
+<section class="page">
+  <h1><span class="n">9</span>snapshots</h1>
+  <div class="side">
+    <img src="img/snapshot.png" style="width:44mm" alt="">
+    <div>
+      <p>The yellow chequered shape at the bottom of the play area is the <b>snapshot button</b>. Click it and the
+      whole play area is stored: every sound with its position, loop length and effect. The snapshot lines up below
+      as a <b>reel</b>, a black ring with a colour tag.</p>
+      <ul>
+        <li><b>Drag a reel onto the timeline</b> to use it in a composition (chapter 10).</li>
+        <li><b>Drag a reel back into the play area</b> to hear that configuration again. It replaces what is there.</li>
+        <li><b>Throw a reel out of the window</b> to delete it.</li>
+      </ul>
+      <p>There is room for <b>10 reels</b>.</p>
+    </div>
+  </div>
+
+  <h1 style="margin-top:3mm"><span class="n">10</span>timeline</h1>
+  <img class="full" src="img/timeline.png" alt="">
+  <div class="cols">
+    <div>
+      <p>The timeline is the bar at the bottom. It holds the composition. Reels dropped on it become
+      <b>segments</b> in the reel's colour, 20 seconds long at first.</p>
+      <ul>
+        <li><b>drag</b> a segment to move it</li>
+        <li><b>drag its right end</b> to make it longer or shorter</li>
+        <li><b>alt-drag</b> to copy it</li>
+        <li><b>drag it away</b> (up or down, off the bar) to delete it</li>
+      </ul>
+      <p>Segments may overlap. Where they do, both play together. Each segment keeps its own copy of the snapshot,
+      so deleting the reel does not change it. Segments fade in and out over 30 ms at their edges.</p>
+    </div>
+    <div>
+      <h2 style="margin-top:0">wheel</h2>
+      <p>The red crescent to the left sets the <b>length of the composition, from 1 to 4 minutes</b> in tenths.
+      Drag up or right for longer, down or left for shorter. Segments keep their places relative to the whole, so a
+      longer piece stretches them too.</p>
+      <h2>play flag</h2>
+      <p>The <b>red flag</b> on its white stem is the play pointer. <b>Click it</b> to play the composition from the
+      flag to the end. Playback then starts over from the flag, as a loop, until you click the flag again.
+      <b>Drag the flag</b> to make playback start later.</p>
+      <div class="note">While the timeline plays, the play area shows what is sounding and nothing else can be
+      changed. This is the one exception to the real-time rule, as in the original. Click the flag to stop
+      and edit again.</div>
+    </div>
+  </div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>7</span></div>
+</section>
+
+<!-- ========== sounds ========== -->
+<section class="page">
+  <h1><span class="n">11</span>sounds</h1>
+  <h2 style="margin-top:0">the built-in bank</h2>
+  <p>All 64 loops are made by openprocess itself when it starts. Each row is one family. The first three are the
+  timbres Popp set as the rule for the <i>ovalprocess</i> CD: guitar, organ and feedback. All loops use the
+  same set of pitches (D, E, F♯, A, B, C♯), so any of them can be combined.</p>
+  <table>
+    <tr><th>row</th><th>family</th><th>what it is</th></tr>
+    <tr><td><span class="chip" style="border-color:#2848a8"></span>1</td><td>organ</td><td>drawbar chords with a slow tremolo</td></tr>
+    <tr><td><span class="chip" style="border-color:#e07828"></span>2</td><td>guitar</td><td>plucked strings, loose arpeggios</td></tr>
+    <tr><td><span class="chip" style="border-color:#2e9a48"></span>3</td><td>feedback</td><td>sustained, drifting tones that swell and saturate</td></tr>
+    <tr><td><span class="chip" style="border-color:#e878a8"></span>4</td><td>skips</td><td>clicks, blips, ticks and stuck-frame stutters</td></tr>
+    <tr><td><span class="chip" style="border-color:#1e1e1e"></span>5</td><td>glass</td><td>FM bells, shimmering and decaying</td></tr>
+    <tr><td><span class="chip" style="border-color:#f0c818"></span>6</td><td>low</td><td>soft bass swells</td></tr>
+    <tr><td><span class="chip" style="border-color:#d83030"></span>7</td><td>noise</td><td>swept filtered noise, hiss, crackle</td></tr>
+    <tr><td><span class="chip" style="border-color:#48a8c8"></span>8</td><td>skipped</td><td>organ and glass, heavily skipped</td></tr>
+  </table>
+  <h2>cd skip</h2>
+  <p>Every loop is built the way a skipping CD plays: from fragments between a few milliseconds and a second and a half long.
+  Some fragments repeat, the read position jumps ahead or back, and now and then a "read error" adds a drop-out,
+  a frozen bit-crushed frame or a click. <b>Columns run from clean on the left to heavily skipped on the right.</b>
+  Loops are 0.5 to 9 seconds long and none is a multiple of another, so loops drift against each other instead of
+  falling into a common beat.</p>
+  <h2>your own sounds</h2>
+  <ul>
+    <li><b>Drop audio files or folders onto the browser</b> (or use the <i>load sounds</i> tool). Folders are searched with
+    their subfolders, up to 256 files. All 64 squares are refilled. Each square gets a part of one file, chopped with
+    the same CD-skip process, clean on the left and skipped on the right. Every file is used before any repeats.
+    Files shorter than the square's loop length are used whole.</li>
+    <li><b>Drop a single file onto one square</b> to replace only that square. The first 30 seconds of the file are used unchopped.</li>
+    <li>Formats: WAV, AIFF, FLAC, Ogg Vorbis, MP3, plus M4A/CAF on the Mac.</li>
+    <li><b>built-in sounds</b> (tool) brings back the original bank.</li>
+  </ul>
+  <div class="note">A session remembers where its files are, not the audio itself. If files are moved, those squares
+  keep their previous sound, and a message names the file that could not be read.</div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>8</span></div>
+</section>
+
+<!-- ========== tools, help ========== -->
+<section class="page">
+  <h1><span class="n">12</span>render, capture, tools</h1>
+  <div class="side">
+    <img src="img/tools.png" style="width:36mm" alt="">
+    <div>
+      <p>The six small buttons at the bottom right are additions that the installation did not have. Their names
+      show when the mouse is over them.</p>
+      <table>
+        <tr><th>button</th><th>does</th></tr>
+        <tr><td>+ &nbsp;load sounds</td><td>choose files or folders to chop into the browser</td></tr>
+        <tr><td>▦ &nbsp;built-in sounds</td><td>restore the synthesized bank</td></tr>
+        <tr><td>⋀⋀ &nbsp;skip again</td><td>re-chop the selected square with a new pattern and strength
+          (or the square of the selected sound). A single file becomes a skipped loop.</td></tr>
+        <tr><td>● &nbsp;capture input</td><td>the last 8 seconds of audio input, silence trimmed, into the selected square
+          (or the last square). It is saved as a WAV in <code>~/Music/openprocess/captures</code>.</td></tr>
+        <tr><td>↓ &nbsp;render to file</td><td>write a WAV file of the composition</td></tr>
+        <tr><td>× &nbsp;clear</td><td>empty the play area</td></tr>
+      </table>
+    </div>
+  </div>
+  <h2>render to file</h2>
+  <p>If the timeline has segments, the render runs from the play flag to the end of the composition. If not, it records
+  the play area for the composition length set on the wheel. The file is 44.1 kHz, 16-bit stereo, mixed at the current
+  Master level. The default place is <code>~/Music/openprocess</code>. Rendering is faster than real time, and a message
+  appears when it is done.</p>
+
+  <h1 style="margin-top:3mm"><span class="n">13</span>help and demo</h1>
+  <div class="side">
+  <img src="img/help.png" style="width:72mm" alt="">
+  <div>
+  <p>The three <b>?</b> marks next to the word mark open help without stopping the sound:</p>
+  <ul>
+    <li><span class="tag o">?</span> orange: the <b>guide</b>, the labels shown on the cover of this manual
+    ("drag samples into play area", "loud", "soft", "try presets" …). Click it again to hide them.</li>
+    <li><span class="tag" style="background:#d8b020">?</span> yellow: a page about the play area</li>
+    <li><span class="tag" style="background:#2a2a2a;color:#fff">?</span> black: a page about snapshots, the timeline and sounds</li>
+  </ul>
+  </div>
+  </div>
+  <p><b>Click the word mark</b> to start the <b>demo</b>. A cursor works through every function on its own: it drags sounds,
+  applies effects, uses presets and operators, takes snapshots, arranges and plays them. <b>Any click ends the demo</b>
+  and puts back exactly what you had. As in the installation, the standalone app starts the demo by itself after three
+  minutes without input when the play area is empty.</p>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>9</span></div>
+</section>
+
+<!-- ========== midi + reference ========== -->
+<section class="page">
+  <h1><span class="n">14</span>midi and parameters</h1>
+  <div class="cols">
+    <div>
+      <table>
+        <tr><th>note</th><th>number</th><th>action</th></tr>
+        <tr><td>C1 – G1</td><td>36 – 43</td><td>presets 1 – 8</td></tr>
+        <tr><td>G♯1</td><td>44</td><td>logical operator: lengths</td></tr>
+        <tr><td>A1</td><td>45</td><td>logical operator: positions</td></tr>
+        <tr><td>A♯1</td><td>46</td><td>snapshot</td></tr>
+        <tr><td>B1</td><td>47</td><td>timeline play / stop</td></tr>
+        <tr><td>C2 – D♯7</td><td>48 – 111</td><td>browser squares 1 – 64: add at a random place, or remove if already playing</td></tr>
+      </table>
+      <p style="font-size:8.5pt">Note names use middle C = C3 (Live, Logic). Notes act on note-on; velocity and note-off are ignored.
+      While the timeline plays, only B1 has an effect.</p>
+    </div>
+    <div>
+      <table>
+        <tr><th>parameter</th><th>range</th><th>default</th></tr>
+        <tr><td>Master</td><td>0 – 1</td><td>0.8</td></tr>
+        <tr><td>Input Thru</td><td>0 – 1</td><td>0</td></tr>
+      </table>
+      <p>Both can be automated. <b>Input Thru</b> lets the audio input through to the output, for example to hear what you
+      are about to capture. The output has a soft limiter just below full scale.</p>
+    </div>
+  </div>
+
+  <h1 style="margin-top:6mm"><span class="n">15</span>reference</h1>
+  <table>
+    <tr><th>item</th><th>value</th></tr>
+    <tr><td>browser</td><td>64 loops (8 rows × 8 columns), 0.5 – 9 s each</td></tr>
+    <tr><td>sounds in the play area</td><td>up to 24</td></tr>
+    <tr><td>volume</td><td>height squared; the bottom edge is silent</td></tr>
+    <tr><td>snapshots</td><td>up to 10</td></tr>
+    <tr><td>timeline segments</td><td>up to 64; new segments 20 s</td></tr>
+    <tr><td>composition length</td><td>1.0 – 4.0 minutes</td></tr>
+    <tr><td>capture</td><td>last 8 s of input</td></tr>
+    <tr><td>render</td><td>WAV, 44.1 kHz, 16-bit, stereo</td></tr>
+    <tr><td>user folder</td><td><code>~/Music/openprocess</code></td></tr>
+    <tr><td>saved with the session</td><td>play area, snapshots, timeline, length, flag, how each square was made, parameters</td></tr>
+    <tr><td>window</td><td>1000 × 720 at 100 %, resizable 60 – 160 %</td></tr>
+  </table>
+  <h2>sources</h2>
+  <p style="font-size:8.3pt">Ovalprocess sound installation, Dokumentation, Bedienungs- und Wartungshinweise, and Markus Popp,
+  ovalprocess project text (Berlin, 7 April 2001), Ars Electronica archive · Markus Popp, ovalprocess US 2k lecture v0.2,
+  Ars Electronica archive · Oval, "Ovalprocess", <i>Leonardo</i> 35/5, 2002 · Sam Inglis, "Markus Popp: Music As Software",
+  <i>Sound On Sound</i>, October 2002 · Marc Weidenbaum, interview with Markus Popp, Disquiet / Pulse!, 1996.
+  openprocess is an independent homage. It is not made, endorsed or distributed by Markus Popp or Oval.</p>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>10</span></div>
+</section>
+
+</body>
+</html>
