@@ -18,13 +18,13 @@ jobs:
         include:
           - name: macOS
             os: macos-latest
-            package: FreakiePie-Bundle-macOS.zip
+            package: poppsphere-bundle-macOS.zip
           - name: Windows
             os: windows-latest
-            package: FreakiePie-Bundle-Windows.zip
+            package: poppsphere-bundle-Windows.zip
           - name: Linux
             os: ubuntu-22.04
-            package: FreakiePie-Bundle-Linux.tar.gz
+            package: poppsphere-bundle-Linux.tar.gz
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
 

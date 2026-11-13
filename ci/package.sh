@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Collects the built plug-ins, apps and manuals into dist/FreakiePie-Bundle-<os>/<product>/
+# Collects the built plug-ins, apps and manuals into dist/poppsphere-bundle-<os>/<product>/
 # usage: ci/package.sh <macOS|Windows|Linux> <build dir>
 set -euo pipefail
 OS="$1"; B="$2"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="$ROOT/dist/FreakiePie-Bundle-$OS"
+OUT="$ROOT/dist/poppsphere-bundle-$OS"
 rm -rf "$OUT"; mkdir -p "$OUT"
 
 art() {   # artefact folder of a target (single- or multi-config generators)
@@ -47,8 +47,8 @@ cp "$ROOT/INSTALL.txt" "$OUT/" 2>/dev/null || true
 
 cd "$ROOT/dist"
 case "$OS" in
-    macOS)   ditto -c -k --keepParent "FreakiePie-Bundle-$OS" "FreakiePie-Bundle-$OS.zip" ;;
-    Windows) 7z a -tzip -r "FreakiePie-Bundle-$OS.zip" "FreakiePie-Bundle-$OS" > /dev/null ;;
-    Linux)   tar -czf "FreakiePie-Bundle-$OS.tar.gz" "FreakiePie-Bundle-$OS" ;;
+    macOS)   ditto -c -k --keepParent "poppsphere-bundle-$OS" "poppsphere-bundle-$OS.zip" ;;
+    Windows) 7z a -tzip -r "poppsphere-bundle-$OS.zip" "poppsphere-bundle-$OS" > /dev/null ;;
+    Linux)   tar -czf "poppsphere-bundle-$OS.tar.gz" "poppsphere-bundle-$OS" ;;
 esac
 ls -la "$ROOT/dist"

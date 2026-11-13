@@ -1,4 +1,4 @@
-# FreakiePie bundle
+# poppsphere bundle
 
 Three instruments and effects in one download, for **macOS, Windows and Linux**, each with a PDF manual.
 
@@ -14,8 +14,8 @@ Manuals: [openprocess](openprocess/docs/manual/openprocess%20Manual.pdf) ·
 
 ## Download and install
 
-Get the zip for your system from **[Releases](https://github.com/femifleming/freakiepie-bundle/releases/latest)**:
-`FreakiePie-Bundle-macOS.zip`, `FreakiePie-Bundle-Windows.zip` or `FreakiePie-Bundle-Linux.tar.gz`.
+Get the zip for your system from **[Releases](https://github.com/femifleming/poppsphere-bundle/releases/latest)**:
+`poppsphere-bundle-macOS.zip`, `poppsphere-bundle-Windows.zip` or `poppsphere-bundle-Linux.tar.gz`.
 Each holds one folder per product, with its manual.
 
 | system | VST3 | other formats | app |
@@ -37,8 +37,8 @@ quarantine flag; if you install by hand, right-click the app → Open the first 
 ## Build from source
 
 ```
-git clone --recursive https://github.com/femifleming/freakiepie-bundle
-cd freakiepie-bundle
+git clone --recursive https://github.com/femifleming/poppsphere-bundle
+cd poppsphere-bundle
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release        # macOS universal: add -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
 cmake --build build --target openprocess_All opensphere_All Quell_All
 ```

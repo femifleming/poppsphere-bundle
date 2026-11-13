@@ -164,7 +164,7 @@ table([
  ('windows', 'Quell.vst3 &rarr; C:\\Program Files\\Common Files\\VST3 &middot; Quell.dll (vst 2) &rarr; your vst folder &middot; Quell.exe runs on its own'),
  ('linux', 'Quell.vst3 &rarr; ~/.vst3 &middot; Quell.lv2 &rarr; ~/.lv2 &middot; Quell.so (vst 2) &rarr; ~/.vst &middot; Quell runs on its own (alsa or jack)'),
 ], head=['system', 'where it goes'])
-p('everything comes in the <b>freakiepie bundle</b> (github.com/femifleming/freakiepie-bundle, releases), one zip per system. the standalone app plays your audio input through quell. quell runs on mono and stereo tracks and has an optional stereo <b>sidechain</b> input. on macos it is universal (apple silicon and intel).')
+p('everything comes in the <b>poppsphere bundle</b> (github.com/femifleming/poppsphere-bundle, releases), one zip per system. the standalone app plays your audio input through quell. quell runs on mono and stereo tracks and has an optional stereo <b>sidechain</b> input. on macos it is universal (apple silicon and intel).')
 
 page()
 h1('the window', 'a guided tour')
