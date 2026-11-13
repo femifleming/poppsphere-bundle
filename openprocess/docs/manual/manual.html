@@ -247,9 +247,9 @@
 <section class="page">
   <h1><span class="n">6</span>effects</h1>
   <div class="side">
-    <img src="img/effects.png" style="width:24mm" alt="">
+    <img src="img/effects.png" style="width:22mm" alt="">
     <div>
-      <p>The five effects are on the right edge. <b>Drag one onto a sound</b> in the play area. It sticks to the sound
+      <p>The six effects are on the right edge. <b>Drag one onto a sound</b> in the play area. It sticks to the sound
       as a small icon at the end of its bar. Each sound carries one effect at a time, and a new one replaces the old.</p>
       <table>
         <tr><th>icon (top to bottom)</th><th>effect</th></tr>
@@ -258,7 +258,16 @@
         <tr><td>black → white</td><td><b>fade out</b>: falls over each loop</td></tr>
         <tr><td>black dot</td><td><b>mute</b>: the sound keeps running, silently</td></tr>
         <tr><td>white dot</td><td><b>solo</b>: only sounds marked solo are heard</td></tr>
+        <tr><td>ice blue, white crystal</td><td><b>freeze</b>: the sound becomes a held spectrum (after Jean-François Charles'
+          freeze, as in ppooll's spectral freeze): its last 8 spectral frames are kept and every moment each frequency
+          takes one of them at random, so it hangs in the air and shimmers</td></tr>
       </table>
+      <p><b>Freeze.</b> A fraction of a second after it is dropped on, the sound freezes. <b>Click the icon</b> to freeze
+      it again at that moment. When the sound is selected, three rails under its loop strip set
+      <b>slide</b> (how slowly it glides into a new freeze, up to about 3 s), <b>denoise</b> (quiet frequencies drop
+      out, leaving the strongest partials) and <b>again</b> (freeze again by itself every 0.5–20 s; at the left, only when
+      you click). Frozen sounds are stored with these settings in snapshots. A freeze on a silent moment is silent:
+      click again.</p>
       <p>Fades follow the loop, so short loops with a fade turn into pulses. Muted or soloed-out sounds are drawn faded,
       and their pointers keep running.</p>
       <p><b>To remove an effect</b>, drag its icon off the sound, or drop the same effect on it again.
@@ -282,7 +291,12 @@
     </div>
   </div>
 
-  <h1 style="margin-top:3mm"><span class="n">8</span>logical operators</h1>
+<div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>6</span></div>
+</section>
+
+<!-- ========== snapshots + timeline ========== -->
+<section class="page">
+  <h1 ><span class="n">8</span>logical operators</h1>
   <div class="side">
     <img src="img/operators.png" style="width:58mm" alt="">
     <div>
@@ -293,11 +307,7 @@
       <p>Use them as often as you like, one after the other or in turn.</p>
     </div>
   </div>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>6</span></div>
-</section>
 
-<!-- ========== snapshots + timeline ========== -->
-<section class="page">
   <h1><span class="n">9</span>snapshots</h1>
   <div class="side">
     <img src="img/snapshot.png" style="width:44mm" alt="">

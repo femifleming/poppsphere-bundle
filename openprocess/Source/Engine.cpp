@@ -7,12 +7,14 @@ void Engine::prepare (double sampleRate)
     kGain = 1.0f - std::exp (-1.0f / (float) (sr * 0.012));        // ~12 ms for moves and volume
     kEnv  = 1.0f - std::exp (-1.0f / (float) (sr * 0.0015));       // ~1.5 ms de-click on effects
     kBlock = 1.0f - std::exp (-(float) kSub / (float) (sr * 0.02)); // ~20 ms for the Ambisonic gains, per inner block
+    for (auto& f : freezers) if (f == nullptr) f = std::make_unique<Freezer>();
     reset();
 }
 
 void Engine::reset()
 {
     for (auto& s : slots) s = Slot();
+    freezerUsed.fill (false);
     for (auto& p : pub) { p.id.store (-1); p.frac.store (0); }
 }
 
@@ -45,6 +47,7 @@ void Engine::process (const Output& out, int n, const VoiceSpec* specs, int numS
         const bool fresh = slot->id != v.id;
         if (fresh)
         {
+            if (slot->fz >= 0) freezerUsed[(size_t) slot->fz] = false;
             *slot = Slot();
             slot->id = v.id;
             slot->phase = v.snd != nullptr ? v.s * v.snd->audio.getNumSamples() : 0.0;
@@ -54,6 +57,17 @@ void Engine::process (const Output& out, int n, const VoiceSpec* specs, int numS
         slot->s = v.s;
         slot->e = v.e;
         slot->effect = v.effect;
+        slot->fzSlide = v.fzSlide; slot->fzDenoise = v.fzDenoise; slot->fzEvery = v.fzEvery;
+        if (v.effect == fx::Freeze && slot->fz < 0)
+            for (int f = 0; f < kFreezers; ++f)
+                if (! freezerUsed[(size_t) f] && freezers[(size_t) f] != nullptr)
+                {
+                    freezerUsed[(size_t) f] = true; slot->fz = f; slot->fzGen = v.fzGen;
+                    freezers[(size_t) f]->reset();
+                    break;
+                }
+        if (slot->fz >= 0 && v.effect != fx::Freeze) { freezerUsed[(size_t) slot->fz] = false; slot->fz = -1; }
+        if (slot->fz >= 0 && v.fzGen != slot->fzGen) { slot->fzGen = v.fzGen; freezers[(size_t) slot->fz]->freezeAgain(); }
         const float pan = juce::jlimit (0.0f, 1.0f, v.pan);
         slot->tgtL = v.gain * juce::jmin (1.0f, 2.0f * (1.0f - pan));
         slot->tgtR = v.gain * juce::jmin (1.0f, 2.0f * pan);
@@ -78,6 +92,7 @@ void Engine::process (const Output& out, int n, const VoiceSpec* specs, int numS
         const float level = out.order < 0 ? std::abs (sl.gL) + std::abs (sl.gR) : std::abs (sl.cL[0]) + std::abs (sl.cR[0]);
         if (! sl.used && level < 1.0e-4f)
         {
+            if (sl.fz >= 0) { freezerUsed[(size_t) sl.fz] = false; sl.fz = -1; }
             sl.id = -1;
             pub[(size_t) si].id.store (-1, std::memory_order_relaxed);
         }
@@ -146,6 +161,11 @@ void Engine::render (Slot& sl, int si, const Output& out, int off, int n, const 
         }
         pub[(size_t) si].frac.store ((float) juce::jlimit (0.0, 1.0, (sl.phase - S) / body), std::memory_order_relaxed);
     }
+
+    // the freeze effect replaces the voice by its frozen spectrum
+    if (sl.fz >= 0)
+        freezers[(size_t) sl.fz]->process (tmpL.data(), tmpR.data(), n, sr, sl.fzSlide, sl.fzDenoise,
+                                           sl.fzEvery <= 0.001f ? 0.0f : 0.5f * std::pow (40.0f, sl.fzEvery));
 
     // 2a. openprocess: left / right
     if (out.order < 0)
@@ -244,6 +264,7 @@ VoiceSpec Engine::specFor (const Item& i, const CellArray& cells, double tau, co
     v.live = i.isLive();
     v.snd = v.live ? nullptr : cells[(size_t) juce::jlimit (0, bank::kCells - 1, i.cell)].get();
     v.s = i.s; v.e = i.e; v.effect = i.effect;
+    v.fzSlide = i.fzSlide; v.fzDenoise = i.fzDenoise; v.fzEvery = i.fzEvery; v.fzGen = i.fzGen;
    #if OP_SPATIAL
     float x, y, d;
     space::moved (i, tau, x, y, d);

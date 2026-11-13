@@ -54,7 +54,7 @@ private:
     static Rect mixRect() { return { 150, 232, 730, 326 }; }
     static Rect cellRect (int c) { return { 300.0f + (c % 8) * 24.0f, 20.0f + (c / 8) * 24.0f, 20, 20 }; }
     static Rect browserRect() { return { 296, 16, 196, 196 }; }
-    static Rect fxRect (int i) { return { 892, 238.0f + i * 64.0f, 96, 56 }; }
+    static Rect fxRect (int i) { return { 892, 236.0f + i * 58.0f, 96, 56 }; }
     static Rect presetRect (int k) { return { 12.0f + (k % 4) * 33.0f, 286.0f + (k / 4) * 144.0f, 31, 88 }; }
     static Rect opRect (int i) { return { i == 0 ? 700.0f : 786.0f, 150, 52, 52 }; }
     static Rect snapButtonRect() { return { 636, 516, 130, 74 }; }
@@ -100,6 +100,7 @@ private:
     Rect barRect (int voiceId, const Item&) const;
     Rect stripRect (int voiceId, const Item&) const;
     Rect attachedFxRect (int voiceId, const Item&) const;
+    Rect freezeRail (const Item&, int k) const;   // the frozen sound's three rails: slide, denoise, again
     Rect flagRect() const;
     Rect segRect (const Segment&) const;
     // timeline zoom: the visible part of the composition, as fractions of its length
@@ -171,11 +172,12 @@ private:
     int dropCell = -2;                // file drag hover: -1 browser, >=0 cell
     float presetFlash[8] {}, opFlash[2] {}, snapFlash = 0;
 
-    enum class Drag { None, Cell, Item, LoopS, LoopE, Effect, AttachedFx, Reel, Seg, SegResize, Flag, Wheel, View, Motion, AttachedMotion, Plan, Live, GlobeTurn, SceneTurn, Dist };
+    enum class Drag { None, Cell, Item, LoopS, LoopE, Effect, AttachedFx, Reel, Seg, SegResize, Flag, Wheel, View, FzRail, Motion, AttachedMotion, Plan, Live, GlobeTurn, SceneTurn, Dist };
     Drag drag = Drag::None;
     int dragIndex = -1;
     Pt downPt, curPt, grabOffset;
     float dragStartVal = 0;
+    int fzRailK = 0;
     Model wheelStart;
     bool moved = false;
     std::deque<Pt> trail;

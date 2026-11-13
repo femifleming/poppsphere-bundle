@@ -166,6 +166,13 @@ int OpEditor::planItemAt (Pt p) const
     return -1;
 }
 
+OpEditor::Rect OpEditor::freezeRail (const Item& i, int k) const
+{
+    const auto s = stripRect (i.id, i);
+    const float w = (s.getWidth() - 16.0f) / 3.0f;
+    return { s.getX() + k * (w + 8.0f), s.getBottom() + 16.0f, w, 18.0f };   // label + rail
+}
+
 OpEditor::Rect OpEditor::flagRect() const
 {
     const auto t = timelineRect();
@@ -790,6 +797,24 @@ void OpEditor::drawFxIcon (juce::Graphics& g, int t, Rect r)
             g.setColour (juce::Colour (0xffa8a9b4)); g.fillRect (r);
             g.setColour (juce::Colours::white); g.fillEllipse (r.reduced (r.getWidth() * 0.22f));
             break;
+        case fx::Freeze:
+        {
+            // ice blue, a held spectrum: bars, and a white crystal over them
+            g.setGradientFill (juce::ColourGradient (juce::Colour (0xffd8f0ff), r.getX(), r.getY(), juce::Colour (0xff7cc4ee), r.getX(), r.getBottom(), false));
+            g.fillRect (r);
+            const float u = r.getWidth() / 30.0f;
+            const float hts[7] = { 9, 16, 22, 13, 19, 8, 12 };
+            g.setColour (juce::Colour (0xff2a4ac0));
+            for (int k = 0; k < 7; ++k) g.fillRect (r.getX() + (3 + k * 3.6f) * u, r.getBottom() - (3 + hts[k]) * u, 2.2f * u, hts[k] * u);
+            g.setColour (juce::Colours::white);
+            const auto c = r.getCentre();
+            for (int k = 0; k < 3; ++k)
+            {
+                const float a = k * juce::MathConstants<float>::pi / 3.0f;
+                g.drawLine (c.x - 9 * u * std::cos (a), c.y - 9 * u * std::sin (a), c.x + 9 * u * std::cos (a), c.y + 9 * u * std::sin (a), 2.0f * u);
+            }
+            break;
+        }
         default: break;
     }
 }
@@ -1060,6 +1085,33 @@ void OpEditor::drawItems (juce::Graphics& g)
             g.drawText (proc.cellName (i.cell), juce::Rectangle<float> (r.getCentreX() - 100, r.getY() - 22, 200, 12),
                         juce::Justification::centred, false);
            #endif
+        }
+        if (d.live && i.id == selectedItem && i.effect == fx::Freeze)
+        {
+            // the freeze's rails: how slowly it glides to a new freeze, how much quiet it drops,
+            // how often it freezes again by itself (off at the left); click the icon to freeze now
+            const float vals[3] = { i.fzSlide, i.fzDenoise, i.fzEvery };
+            for (int k = 0; k < 3; ++k)
+            {
+                const auto rr = freezeRail (i, k);
+                juce::String lab = k == 0 ? "slide " + juce::String (i.fzSlide * i.fzSlide * 160.0f * 1024.0f / 48000.0f, 1) + " s"
+                                 : k == 1 ? "denoise " + juce::String (juce::roundToInt (i.fzDenoise * 100.0f)) + " %"
+                                          : (i.fzEvery <= 0.001f ? juce::String ("again: by click")
+                                                                 : "again " + juce::String (0.5f * std::pow (40.0f, i.fzEvery), 1) + " s");
+                g.setColour (kInk);
+                g.setFont (labelFont (8.5f));
+                g.drawText (lab, Rect (rr.getX(), rr.getY(), rr.getWidth() + 20, 10), juce::Justification::centredLeft, false);
+                const Rect rail (rr.getX(), rr.getY() + 12, rr.getWidth(), 3);
+                g.setColour (kFrameDark);
+                g.fillRect (rail);
+                g.setColour (juce::Colour (0xff7cc4ee));
+                g.fillRect (rail.withWidth (rail.getWidth() * vals[k]));
+                juce::Path t;
+                const float x = rail.getX() + vals[k] * rail.getWidth();
+                t.addTriangle (x, rail.getBottom(), x - 4, rail.getBottom() + 6, x + 4, rail.getBottom() + 6);
+                g.setColour (kRed);
+                g.fillPath (t);
+            }
         }
     }
 }
@@ -1362,8 +1414,8 @@ void OpEditor::drawHelp (juce::Graphics& g)
         "play area: left / right is the panorama, up / down is loud / soft.",
         "every sound loops; the black pointer runs across it.",
         "click a sound: the two red pointers set the part of the sample that loops.",
-        "drag an effect from the right onto a sound: fade in+out, fade in,",
-        "fade out, mute, solo. drag it off the sound to take it away.",
+        "effects (right): fade in+out, in, out, mute, solo, freeze (a held spectrum;",
+        "click its icon to freeze again, rails under the sound). drag off to remove.",
         "presets (brackets, left): a new mix with each click. shift-click adds.",
         "logical operators (top right): random loop lengths / random positions.",
         "throw a sound out of the play area to stop it.",
@@ -1393,7 +1445,7 @@ void OpEditor::drawHelp (juce::Graphics& g)
         "mouse wheel over a sound: nearer / further. near is loud, wide and bright.",
         "motions (top right, 12): drag onto a sound. each sound runs its own, from",
         "where it is; wheel over its little icon for speed. rails: distance settings.",
-        "effects (right): fade in+out, in, out, mute, solo. drag off to remove.",
+        "effects: fade in+out, in, out, mute, solo, freeze (click its icon: freeze again).",
         "red square 'in': drag it into the play area to place the live input.",
         "meter: the frame's squares light up - the row by direction, the column by height.",
     };
@@ -1656,6 +1708,15 @@ void OpEditor::mouseDown (const juce::MouseEvent& e)
 
     if (! editable) return;
 
+    // the selected frozen sound's rails
+    if (auto* sel = cur.findItem (selectedItem); sel != nullptr && sel->effect == fx::Freeze)
+        for (int k = 0; k < 3; ++k)
+            if (freezeRail (*sel, k).expanded (2, 4).contains (p))
+            {
+                drag = Drag::FzRail; dragIndex = sel->id; fzRailK = k;
+                mouseDrag (e);
+                return;
+            }
     // the selected sound's loop pointers
     if (auto* sel = cur.findItem (selectedItem); sel != nullptr && ! sel->isLive())
     {
@@ -1806,6 +1867,18 @@ void OpEditor::mouseDrag (const juce::MouseEvent& e)
         case Drag::Live:
             break;
        #endif
+        case Drag::FzRail:
+        {
+            const auto* it = cur.findItem (dragIndex);
+            if (it == nullptr) break;
+            const auto r = freezeRail (*it, fzRailK);
+            const float v = juce::jlimit (0.0f, 1.0f, (p.x - r.getX()) / r.getWidth());
+            const int k = fzRailK;
+            proc.edit ([&] (Model& m) {
+                if (auto* i = m.findItem (dragIndex)) (k == 0 ? i->fzSlide : k == 1 ? i->fzDenoise : i->fzEvery) = v;
+            });
+            break;
+        }
         case Drag::LoopS:
         case Drag::LoopE:
         {
@@ -1965,14 +2038,24 @@ void OpEditor::mouseUp (const juce::MouseEvent& e)
             break;
        #endif
         case Drag::AttachedFx:
-            if (moved)
+            if (! moved)
+            {
+                // a click on the freeze icon: freeze again, now
+                proc.edit ([&] (Model& m) { if (auto* i = m.findItem (dragIndex); i != nullptr && i->effect == fx::Freeze) ++i->fzGen; });
+                selectedItem = dragIndex;
+            }
+            else
             {
                 const int target = itemAt (p);
                 if (target != dragIndex)
                     proc.edit ([&] (Model& m) {
                         auto* from = m.findItem (dragIndex);
                         if (from == nullptr) return;
-                        if (auto* to = m.findItem (target)) to->effect = from->effect;
+                        if (auto* to = m.findItem (target))
+                        {
+                            to->effect = from->effect;
+                            to->fzSlide = from->fzSlide; to->fzDenoise = from->fzDenoise; to->fzEvery = from->fzEvery;
+                        }
                         from->effect = fx::None;
                     });
             }

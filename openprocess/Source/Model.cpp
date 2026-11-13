@@ -24,6 +24,9 @@ juce::ValueTree itemTree (const Item& i)
     t.setProperty ("s", i.s, nullptr);
     t.setProperty ("e", i.e, nullptr);
     t.setProperty ("fx", i.effect, nullptr);
+    t.setProperty ("fzs", i.fzSlide, nullptr);
+    t.setProperty ("fzd", i.fzDenoise, nullptr);
+    t.setProperty ("fze", i.fzEvery, nullptr);
     t.setProperty ("d", i.d, nullptr);
     t.setProperty ("motion", i.motion, nullptr);
     t.setProperty ("mrate", i.mrate, nullptr);
@@ -41,6 +44,9 @@ Item itemFrom (const juce::ValueTree& t)
     i.s = juce::jlimit (0.0f, 1.0f, (float) t.getProperty ("s", 0.0f));
     i.e = juce::jlimit (i.s, 1.0f, (float) t.getProperty ("e", 1.0f));
     i.effect = juce::jlimit (-1, fx::Count - 1, (int) t.getProperty ("fx", -1));
+    i.fzSlide = juce::jlimit (0.0f, 1.0f, (float) t.getProperty ("fzs", 0.3f));
+    i.fzDenoise = juce::jlimit (0.0f, 1.0f, (float) t.getProperty ("fzd", 0.0f));
+    i.fzEvery = juce::jlimit (0.0f, 1.0f, (float) t.getProperty ("fze", 0.0f));
     i.d = juce::jlimit (0.0f, 1.0f, (float) t.getProperty ("d", 0.3f));
     i.motion = juce::jlimit (-1, motion::Count - 1, (int) t.getProperty ("motion", -1));
     i.mrate = juce::jlimit (0.25f, 4.0f, (float) t.getProperty ("mrate", 1.0f));

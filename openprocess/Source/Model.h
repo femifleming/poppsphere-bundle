@@ -5,7 +5,7 @@
 #include <cmath>
 #include <array>
 
-namespace fx { enum { None = -1, FadeInOut = 0, FadeIn = 1, FadeOut = 2, Mute = 3, Solo = 4, Count = 5 }; }
+namespace fx { enum { None = -1, FadeInOut = 0, FadeIn = 1, FadeOut = 2, Mute = 3, Solo = 4, Freeze = 5, Count = 6 }; }
 
 // opensphere: ways a sound can move through the space by itself
 namespace motion { enum { None = -1, Orbit = 0, Swing, Rise, Drift, Spiral, Figure8, Arc, Approach, Hop, Flutter, Boids, Lorenz, Count }; }
@@ -21,6 +21,9 @@ struct Item                 // one looping sound in the mix window
     float y = 0.7f;         // volume: 0 soft (bottom) .. 1 loud (top)
     float s = 0.0f, e = 1.0f;   // played part of the sample (fractions)
     int effect = fx::None;
+    // the freeze effect: slide (glide to a new freeze), denoise, re-freeze every (0 = never); fzGen counts "freeze again"
+    float fzSlide = 0.3f, fzDenoise = 0.0f, fzEvery = 0.0f;
+    int fzGen = 0;
     // opensphere only: x is the direction around you, y the height, d the distance
     float d = 0.3f;         // 0 at your head .. 1 far away
     int motion = motion::None;

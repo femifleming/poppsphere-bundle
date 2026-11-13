@@ -135,6 +135,37 @@ int main (int argc, char** argv)
         std::printf ("  mix peak %.3f rms %.3f\n", pk, rms);
         if (renderDir != juce::File()) writeWav (renderDir.getChildFile ("mix.wav"), out, 48000);
 
+        // freeze: the voice turns into a held spectrum - steady, finite, as loud as the sound
+        {
+            Model fm;
+            Item i; i.id = 1; i.cell = 2; i.x = 0.5f; i.y = 0.8f; i.effect = fx::Freeze; i.fzSlide = 0.0f;
+            fm.mix.push_back (i);
+            Engine fe;
+            fe.prepare (48000);
+            juce::AudioBuffer<float> fo (2, 48000 * 6);
+            fo.clear();
+            for (int pos = 0; pos < fo.getNumSamples(); pos += 256)
+            {
+                const int n = juce::jmin (256, fo.getNumSamples() - pos);
+                const int nsp = Engine::buildMix (fm, cells, pos / 48000.0, vs.data(), (int) vs.size());
+                fe.process (fo.getWritePointer (0, pos), fo.getWritePointer (1, pos), n, vs.data(), nsp);
+            }
+            float fpk; double frms;
+            const bool fin = finiteBuf (fo, fpk, frms);
+            // steadiness: the level of 0.25 s windows in the last 3 s varies little
+            double lo = 1e9, hi = 0;
+            for (int w = 0; w < 12; ++w)
+            {
+                double e = 0;
+                for (int k = 0; k < 12000; ++k) { const float v = fo.getSample (0, 48000 * 3 + w * 12000 + k); e += v * v; }
+                e = std::sqrt (e / 12000); lo = std::min (lo, e); hi = std::max (hi, e);
+            }
+            std::printf ("  freeze: peak %.3f rms %.4f, window rms %.4f .. %.4f\n", fpk, frms, lo, hi);
+            CHECK (fin && frms > 0.005 && fpk < 1.5f, "freeze makes a finite, audible held sound");
+            CHECK (hi < 2.5 * lo, "the frozen sound is steady");
+            if (renderDir != juce::File()) writeWav (renderDir.getChildFile ("freeze.wav"), fo, 48000);
+        }
+
         // solo silences the others
         Model solo = m;
         solo.mix[1].effect = fx::Solo;
@@ -373,7 +404,7 @@ int main (int argc, char** argv)
             p.applyPreset (4, false);
             p.takeSnapshot();
             p.edit ([] (Model& m) {
-                m.mix.front().effect = fx::FadeInOut;
+                m.mix.front().effect = fx::Freeze;
                 if (m.mix.size() > 2) m.mix[2].effect = fx::Mute;
                 Segment s; s.id = m.nextId++; s.start = 0.35f; s.len = 0.25f; s.snap = m.snaps.back(); m.segs.push_back (s);
                 m.minutes = 2.5f;
