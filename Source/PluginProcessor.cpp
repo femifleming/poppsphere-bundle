@@ -10,6 +10,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout layout()
                                                               juce::NormalisableRange<float> (0.0f, 1.0f), 0.8f));
     p.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { "thru", 1 }, "Input Thru",
                                                               juce::NormalisableRange<float> (0.0f, 1.0f), 0.0f));
+   #if OP_SPATIAL
+    p.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "order", 1 }, "Ambisonic Order",
+                     juce::StringArray { "1st", "2nd", "3rd", "4th", "5th", "6th", "7th" }, 2));
+   #endif
     return { p.begin(), p.end() };
 }
 
@@ -20,23 +24,48 @@ inline float softClip (float x)
     return std::copysign (0.8f + 0.2f * std::tanh ((a - 0.8f) / 0.2f), x);
 }
 
-bool writeWav (const juce::File& f, const juce::AudioBuffer<float>& b, double rate)
+std::unique_ptr<juce::AudioFormatWriter> openWav (const juce::File& f, double rate, int channels, int bits)
 {
     f.getParentDirectory().createDirectory();
     f.deleteFile();
     std::unique_ptr<juce::OutputStream> os = std::make_unique<juce::FileOutputStream> (f);
-    if (! static_cast<juce::FileOutputStream*> (os.get())->openedOk()) return false;
+    if (! static_cast<juce::FileOutputStream*> (os.get())->openedOk()) return nullptr;
     juce::WavAudioFormat wav;
-    auto w = wav.createWriterFor (os, juce::AudioFormatWriterOptions().withSampleRate (rate)
-                                          .withNumChannels (b.getNumChannels()).withBitsPerSample (16));
+    return wav.createWriterFor (os, juce::AudioFormatWriterOptions().withSampleRate (rate)
+                                        .withNumChannels (channels).withBitsPerSample (bits));
+}
+
+bool writeWav (const juce::File& f, const juce::AudioBuffer<float>& b, double rate)
+{
+    auto w = openWav (f, rate, b.getNumChannels(), 16);
     return w != nullptr && w->writeFromAudioSampleBuffer (b, 0, b.getNumSamples());
 }
+
 } // namespace
 
+// Stereo in. openprocess: stereo out. opensphere: Ambisonics out - 3rd order (16 channels) as an
+// Audio Unit, up to 7th (64) elsewhere so a track that wide has room; the order setting says how many
+// are used. The desktop app plays a stereo preview (and renders full Ambisonic files).
+juce::AudioProcessor::BusesProperties OpProcessor::buses()
+{
+   #if OP_SPATIAL
+    const auto t = juce::PluginHostType::getPluginLoadedAs();
+    if (t == juce::AudioProcessor::wrapperType_Standalone)
+        return juce::AudioProcessor::BusesProperties()
+            .withInput ("Input", juce::AudioChannelSet::stereo(), true)
+            .withOutput ("Output", juce::AudioChannelSet::stereo(), true);
+    return juce::AudioProcessor::BusesProperties()
+        .withInput ("Input", juce::AudioChannelSet::stereo(), true)
+        .withOutput ("Output", juce::AudioChannelSet::ambisonic (t == juce::AudioProcessor::wrapperType_AudioUnit ? 3 : 7), true);
+   #else
+    return juce::AudioProcessor::BusesProperties()
+        .withInput ("Input", juce::AudioChannelSet::stereo(), true)
+        .withOutput ("Output", juce::AudioChannelSet::stereo(), true);
+   #endif
+}
+
 OpProcessor::OpProcessor()
-    : AudioProcessor (BusesProperties()
-                          .withInput ("Input", juce::AudioChannelSet::stereo(), true)
-                          .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
+    : AudioProcessor (buses()),
       params (*this, nullptr, "params", layout())
 {
     formats.registerBasicFormats();
@@ -53,7 +82,16 @@ OpProcessor::~OpProcessor()
 
 bool OpProcessor::isBusesLayoutSupported (const BusesLayout& l) const
 {
-    if (l.getMainOutputChannelSet() != juce::AudioChannelSet::stereo()) return false;
+    const auto out = l.getMainOutputChannelSet();
+   #if OP_SPATIAL
+    bool ok = out == juce::AudioChannelSet::stereo();
+    for (int o = 1; o <= ambi::kMaxOrder; ++o)
+        ok = ok || out == juce::AudioChannelSet::ambisonic (o)
+                || (out == juce::AudioChannelSet::discreteChannels (ambi::chFor (o)) && wrapperType != wrapperType_AudioUnit);
+    if (! ok) return false;
+   #else
+    if (out != juce::AudioChannelSet::stereo()) return false;
+   #endif
     const auto in = l.getMainInputChannelSet();
     return in.isDisabled() || in == juce::AudioChannelSet::mono() || in == juce::AudioChannelSet::stereo();
 }
@@ -64,6 +102,8 @@ void OpProcessor::prepareToPlay (double rate, int block)
     engine.prepare (hostRate);
     scratchL.assign ((size_t) juce::jmax (block, 512), 0.0f);
     scratchR.assign ((size_t) juce::jmax (block, 512), 0.0f);
+    inCopy.setSize (2, juce::jmax (block, 512));
+    fold.setSize (4, juce::jmax (block, 512));
     ring.setSize (2, (int) (hostRate * 8.0));
     ring.clear();
     ringPos = 0;
@@ -100,11 +140,8 @@ void OpProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuff
             if (++pos >= R) pos = 0;
         }
         ringPos = pos;
+        inPeak = in.getMagnitude (0, n);
     }
-
-    if ((int) scratchL.size() < n) { scratchL.resize ((size_t) n); scratchR.resize ((size_t) n); }
-    std::fill (scratchL.begin(), scratchL.begin() + n, 0.0f);
-    std::fill (scratchR.begin(), scratchR.begin() + n, 0.0f);
 
     const bool playing = timelinePlayingFlag.load();
     double tlLength = 60.0, startAt = 0.0;
@@ -120,26 +157,63 @@ void OpProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuff
                 numSpecs = Engine::buildTimeline (model, cells, tlTime, specs.data(), (int) specs.size());
             }
             else
-                numSpecs = Engine::buildMix (model, cells, specs.data(), (int) specs.size());
+                numSpecs = Engine::buildMix (model, cells, motionClock, specs.data(), (int) specs.size());
         }
         else if (playing && ! wasPlaying)
             tlTime = startAt;
     }
-
-    engine.process (scratchL.data(), scratchR.data(), n, specs.data(), numSpecs);
-
-    if (playing)
-    {
-        tlTime += n / hostRate;
-        if (tlTime >= tlLength) tlTime = juce::jmin (startAt, tlLength - 0.01);
-        tlPos = tlTime;
-    }
-    wasPlaying = playing;
+    motionNow = playing ? tlTime : motionClock;
 
     const float master = params.getRawParameterValue ("master")->load();
-    const float thru = params.getRawParameterValue ("thru")->load();
     auto out = getBusBuffer (buffer, false, 0);
-    for (int ch = 0; ch < out.getNumChannels(); ++ch)
+    const int numOut = out.getNumChannels();
+
+   #if OP_SPATIAL
+    // the live input, kept before the output overwrites it (they can share a buffer)
+    if (inCopy.getNumSamples() < n) inCopy.setSize (2, n, false, false, true);
+    for (int ch = 0; ch < 2; ++ch)
+        if (inCh > 0) inCopy.copyFrom (ch, 0, in, juce::jmin (ch, inCh - 1), 0, n);
+        else inCopy.clear (ch, 0, n);
+    const float* liveL = inCopy.getReadPointer (0);
+    const float* liveR = inCopy.getReadPointer (1);
+
+    const int wanted = 1 + (int) params.getRawParameterValue ("order")->load();
+    if (numOut >= 4)
+    {
+        const int nch = juce::jmin (numOut, ambi::kCh);
+        const int order = juce::jmin (wanted, ambi::orderFor (nch));
+        out.clear();
+        engine.process (Engine::Output { out.getArrayOfWritePointers(), nch, order }, n, specs.data(), numSpecs, liveL, liveR);
+        for (int c = 0; c < ambi::chFor (order); ++c)
+        {
+            float* d = out.getWritePointer (c);
+            for (int i = 0; i < n; ++i) d[i] *= master * 0.7f;
+        }
+        orderNow = order;
+    }
+    else
+    {
+        // stereo: encode at 1st order and fold to left / right (W + Y, W - Y) so there is something to hear
+        if (fold.getNumSamples() < n) fold.setSize (4, n, false, false, true);
+        fold.clear();
+        engine.process (Engine::Output { fold.getArrayOfWritePointers(), 4, 1 }, n, specs.data(), numSpecs, liveL, liveR);
+        const float* w = fold.getReadPointer (0);
+        const float* y = fold.getReadPointer (1);
+        for (int ch = 0; ch < numOut; ++ch)
+        {
+            float* d = out.getWritePointer (ch);
+            const float sgn = ch == 0 ? 1.0f : -1.0f;
+            for (int i = 0; i < n; ++i) d[i] = softClip ((w[i] + sgn * y[i]) * 0.7071f * master * 0.7f);
+        }
+        orderNow = 0;
+    }
+   #else
+    if ((int) scratchL.size() < n) { scratchL.resize ((size_t) n); scratchR.resize ((size_t) n); }
+    std::fill (scratchL.begin(), scratchL.begin() + n, 0.0f);
+    std::fill (scratchR.begin(), scratchR.begin() + n, 0.0f);
+    engine.process (scratchL.data(), scratchR.data(), n, specs.data(), numSpecs);
+    const float thru = params.getRawParameterValue ("thru")->load();
+    for (int ch = 0; ch < numOut; ++ch)
     {
         const float* src = ch == 0 ? scratchL.data() : scratchR.data();
         float* dst = out.getWritePointer (ch);
@@ -147,6 +221,17 @@ void OpProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuff
         for (int i = 0; i < n; ++i)
             dst[i] = softClip (src[i] * master * 0.7f + (inp != nullptr ? thru * inp[i] : 0.0f));
     }
+   #endif
+
+    if (playing)
+    {
+        tlTime += n / hostRate;
+        if (tlTime >= tlLength) tlTime = juce::jmin (startAt, tlLength - 0.01);
+        tlPos = tlTime;
+    }
+    motionClock += n / hostRate;
+    if (motionClock > 86400.0) motionClock = 0.0;
+    wasPlaying = playing;
 }
 
 //==============================================================================
@@ -178,9 +263,10 @@ int OpProcessor::addItem (int cell, float x, float y)
     if ((int) model.mix.size() >= Model::kMaxItems) return -1;
     Item i;
     i.id = model.nextId++;
-    i.cell = juce::jlimit (0, bank::kCells - 1, cell);
+    i.cell = juce::jlimit (0, OP_SPATIAL ? kLiveCell : bank::kCells - 1, cell);
     i.x = juce::jlimit (0.0f, 1.0f, x);
     i.y = juce::jlimit (0.0f, 1.0f, y);
+    i.d = 0.3f;
     model.mix.push_back (i);
     return i.id;
 }
@@ -198,8 +284,16 @@ void OpProcessor::applyPreset (int k, bool additive)
         Item i;
         i.id = model.nextId++;
         i.cell = row * bank::kCols + rng.nextInt (bank::kCols);
+       #if OP_SPATIAL
+        // spread round you, mostly a little above the horizon
+        i.x = rng.nextFloat();
+        i.y = space::yForElevationDeg (-15.0f + 55.0f * rng.nextFloat());
+        i.d = 0.12f + 0.6f * rng.nextFloat();
+        i.motion = rng.nextFloat() < 0.3f ? rng.nextInt (motion::Count) : motion::None;
+       #else
         i.x = 0.1f + 0.8f * rng.nextFloat();
         i.y = 0.4f + 0.55f * rng.nextFloat();
+       #endif
         const float len = (k % 2 == 1) ? 0.03f + 0.22f * rng.nextFloat() : 0.4f + 0.6f * rng.nextFloat();
         i.s = (1.0f - len) * rng.nextFloat();
         i.e = i.s + len;
@@ -225,7 +319,12 @@ void OpProcessor::operatorPosition()
     for (auto& i : model.mix)
     {
         i.x = rng.nextFloat();
+       #if OP_SPATIAL
+        i.y = space::yForElevationDeg (-30.0f + 110.0f * rng.nextFloat());
+        i.d = 0.08f + 0.75f * rng.nextFloat();
+       #else
         i.y = 0.2f + 0.8f * rng.nextFloat();
+       #endif
     }
 }
 
@@ -297,7 +396,11 @@ void OpProcessor::handleMidi (int note)
             for (auto it = model.mix.begin(); it != model.mix.end(); ++it)
                 if (it->cell == cell) { model.mix.erase (it); removed = true; break; }
         }
+       #if OP_SPATIAL
+        if (! removed) addItem (cell, rng.nextFloat(), space::yForElevationDeg (-10.0f + 50.0f * rng.nextFloat()));
+       #else
         if (! removed) addItem (cell, rng.nextFloat(), 0.45f + 0.5f * rng.nextFloat());
+       #endif
     }
 }
 
@@ -321,18 +424,21 @@ void OpProcessor::timerCallback()
 bool OpProcessor::cellReady (int cell) const
 {
     const juce::SpinLock::ScopedLockType sl (lock);
+    if (cell < 0 || cell >= bank::kCells) return true;
     return cells[(size_t) cell] != nullptr;
 }
 
 juce::String OpProcessor::cellName (int cell) const
 {
     const juce::SpinLock::ScopedLockType sl (lock);
+    if (cell < 0 || cell >= bank::kCells) return "input";
     return cells[(size_t) cell] != nullptr ? cells[(size_t) cell]->name : juce::String ("...");
 }
 
 double OpProcessor::cellSeconds (int cell) const
 {
     const juce::SpinLock::ScopedLockType sl (lock);
+    if (cell < 0 || cell >= bank::kCells) return 1.0;
     return cells[(size_t) cell] != nullptr ? cells[(size_t) cell]->seconds() : 1.0;
 }
 
@@ -462,42 +568,64 @@ void OpProcessor::renderToFile (const juce::File& file)
         cs = cells;
     }
     const float master = params.getRawParameterValue ("master")->load();
+   #if OP_SPATIAL
+    const int order = 1 + (int) params.getRawParameterValue ("order")->load();
+   #else
+    const int order = -1;
+   #endif
     ++pending;
     setStatus ("rendering ...");
-    pool.addJob ([this, m, cs, file, master]
+    pool.addJob ([this, m, cs, file, master, order]
     {
-        constexpr double rate = 44100.0;
+        // written as it goes (a 30 minute piece in 64 channels would not fit in memory):
+        // openprocess 16-bit stereo, opensphere 24-bit AmbiX (ACN / SN3D) at the chosen order
+        constexpr double rate = 48000.0;
         const double L = m.minutes * 60.0;
         const bool useTimeline = ! m.segs.empty();
         const double start = useTimeline ? m.playStart * L : 0.0;
-        const int total = (int) ((L - start) * rate);
-        juce::AudioBuffer<float> out (2, juce::jmax (1, total));
-        out.clear();
+        const juce::int64 total = (juce::int64) ((L - start) * rate);
+        const int nch = order < 0 ? 2 : ambi::chFor (order);
+        auto w = openWav (file, rate, nch, order < 0 ? 16 : 24);
+        if (w == nullptr) { setStatus ("could not write " + file.getFullPathName()); --pending; return; }
         Engine e;
         e.prepare (rate);
         std::vector<VoiceSpec> vs (Engine::kMaxSpecs);
-        constexpr int block = 256;
-        for (int pos = 0; pos < total; pos += block)
+        constexpr int block = 256, chunk = 48000;
+        juce::AudioBuffer<float> buf (nch, chunk);
+        bool ok = true;
+        int lastPct = -1;
+        for (juce::int64 pos = 0; pos < total && ok; pos += chunk)
         {
-            const int n = juce::jmin (block, total - pos);
-            const double t = start + pos / rate;
-            const int ns = useTimeline ? Engine::buildTimeline (m, cs, t, vs.data(), (int) vs.size())
-                                       : Engine::buildMix (m, cs, vs.data(), (int) vs.size());
-            e.process (out.getWritePointer (0, pos), out.getWritePointer (1, pos), n, vs.data(), ns);
+            const int len = (int) juce::jmin ((juce::int64) chunk, total - pos);
+            buf.clear();
+            for (int k = 0; k < len; k += block)
+            {
+                const int n = juce::jmin (block, len - k);
+                const double t = start + (double) (pos + k) / rate;
+                const int ns = useTimeline ? Engine::buildTimeline (m, cs, t, vs.data(), (int) vs.size())
+                                           : Engine::buildMix (m, cs, t, vs.data(), (int) vs.size());
+                float* ptrs[ambi::kCh];
+                for (int c = 0; c < nch; ++c) ptrs[c] = buf.getWritePointer (c, k);
+                e.process (Engine::Output { ptrs, nch, order }, n, vs.data(), ns);
+            }
+            for (int c = 0; c < nch; ++c)
+            {
+                auto* d = buf.getWritePointer (c);
+                for (int i = 0; i < len; ++i) d[i] = order < 0 ? softClip (d[i] * master * 0.7f) : juce::jlimit (-1.0f, 1.0f, d[i] * master * 0.7f);
+            }
+            ok = w->writeFromAudioSampleBuffer (buf, 0, len);
+            const int pct = (int) (100 * (pos + len) / juce::jmax ((juce::int64) 1, total));
+            if (pct / 5 != lastPct / 5) { setStatus ("rendering ... " + juce::String (pct) + " %"); lastPct = pct; }
         }
-        for (int ch = 0; ch < 2; ++ch)
-        {
-            auto* d = out.getWritePointer (ch);
-            for (int i = 0; i < total; ++i) d[i] = softClip (d[i] * master * 0.7f);
-        }
-        setStatus (writeWav (file, out, rate) ? "rendered " + file.getFileName() : "could not write " + file.getFullPathName());
+        w.reset();
+        setStatus (ok ? "rendered " + file.getFileName() : "could not write " + file.getFullPathName());
         --pending;
     });
 }
 
 juce::File OpProcessor::userFolder()
 {
-    return juce::File::getSpecialLocation (juce::File::userMusicDirectory).getChildFile ("openprocess");
+    return juce::File::getSpecialLocation (juce::File::userMusicDirectory).getChildFile (JucePlugin_Name);
 }
 
 juce::String OpProcessor::status() const
@@ -516,7 +644,7 @@ void OpProcessor::setStatus (const juce::String& s)
 //==============================================================================
 void OpProcessor::getStateInformation (juce::MemoryBlock& dest)
 {
-    juce::ValueTree root ("openprocess");
+    juce::ValueTree root (JucePlugin_Name);
     root.appendChild (params.copyState(), nullptr);
     auto m = getModel();
     m.timelinePlaying = false;
@@ -535,7 +663,7 @@ void OpProcessor::setStateInformation (const void* data, int size)
     auto xml = getXmlFromBinary (data, size);
     if (xml == nullptr) return;
     auto root = juce::ValueTree::fromXml (*xml);
-    if (! root.hasType ("openprocess")) return;
+    if (! root.hasType (JucePlugin_Name)) return;
     auto p = root.getChildWithName (params.state.getType());
     if (p.isValid()) params.replaceState (p);
     setModel (Model::fromTree (root.getChildWithName ("model")));

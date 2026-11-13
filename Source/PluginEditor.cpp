@@ -22,6 +22,12 @@ constexpr int kDemoLen = (int) (sizeof (kDemo) / sizeof (kDemo[0]));
 constexpr juce::uint32 kDemoStepMs = 1700;
 
 float ease (float t) { t = juce::jlimit (0.0f, 1.0f, t); return t * t * (3.0f - 2.0f * t); }
+
+// the colours a sound is drawn in (the live input: black and red)
+juce::Colour outerOf (int cell) { return cell == kLiveCell ? juce::Colour (0xff1e1e1e) : bank::outerColour (cell); }
+juce::Colour innerOf (int cell) { return cell == kLiveCell ? juce::Colour (0xffd42a24) : bank::innerColour (cell); }
+
+const char* kMotionNames[motion::Count] = { "orbit", "swing", "rise", "drift" };
 } // namespace
 
 OpEditor::OpEditor (OpProcessor& p) : AudioProcessorEditor (p), proc (p)
@@ -53,7 +59,11 @@ juce::Colour OpEditor::reelColour (int c)
 OpEditor::Pt OpEditor::itemPos (const Item& i) const
 {
     const auto m = mixRect();
-    return { m.getX() + 24 + i.x * (m.getWidth() - 48), m.getY() + 18 + (1.0f - i.y) * (m.getHeight() - 36) };
+    float x = i.x, y = i.y;
+   #if OP_SPATIAL
+    space::moved (i, motionT, x, y);
+   #endif
+    return { m.getX() + 24 + x * (m.getWidth() - 48), m.getY() + 18 + (1.0f - y) * (m.getHeight() - 36) };
 }
 
 void OpEditor::posToXY (Pt p, float& x, float& y) const
@@ -65,6 +75,7 @@ void OpEditor::posToXY (Pt p, float& x, float& y) const
 
 float OpEditor::barWidth (const Item& i) const
 {
+    if (i.isLive()) return 120.0f;
     const double secs = cellSecs[(size_t) i.cell] * (i.e - i.s);
     return (float) juce::jlimit (26.0, 230.0, secs * 55.0);
 }
@@ -90,17 +101,67 @@ OpEditor::Rect OpEditor::attachedFxRect (int voiceId, const Item& i) const
     return { b.getRight() + 6, b.getCentreY() - 7, 14, 14 };
 }
 
+OpEditor::Rect OpEditor::attachedMotionRect (int voiceId, const Item& i) const
+{
+    const auto b = barRect (voiceId, i);
+    return { b.getRight() + (i.effect != fx::None ? 24.0f : 6.0f), b.getCentreY() - 7, 14, 14 };
+}
+
+OpEditor::Pt OpEditor::planPos (const Item& i, double t) const
+{
+    float x = i.x, y = i.y;
+    space::moved (i, t, x, y);
+    const float az = space::azimuth (x), r = kPlanR * (0.08f + 0.92f * i.d);
+    return planCentre() + Pt (-r * std::sin (az), -r * std::cos (az));
+}
+
+int OpEditor::planItemAt (Pt p) const
+{
+    for (auto it = cur.mix.rbegin(); it != cur.mix.rend(); ++it)
+        if (planPos (*it, motionT).getDistanceFrom (p) < 9.0f) return it->id;
+    return -1;
+}
+
 OpEditor::Rect OpEditor::flagRect() const
 {
     const auto t = timelineRect();
-    const float x = t.getX() + cur.playStart * t.getWidth();
+    const float x = fracToX (cur.playStart);
     return { x - 13, t.getY() - 40, 26, 58 };
+}
+
+float OpEditor::fracToX (float f) const
+{
+    const auto t = timelineRect();
+    return t.getX() + (f - viewStart) / viewLen * t.getWidth();
+}
+
+float OpEditor::xToFrac (float x) const
+{
+    const auto t = timelineRect();
+    return viewStart + (x - t.getX()) / t.getWidth() * viewLen;
+}
+
+void OpEditor::clampView()
+{
+    const float minLen = juce::jmin (1.0f, 10.0f / (cur.minutes * 60.0f));   // at most 10 s across
+    viewLen = juce::jlimit (minLen, 1.0f, viewLen);
+    viewStart = juce::jlimit (0.0f, 1.0f - viewLen, viewStart);
+}
+
+void OpEditor::zoomTimeline (float factor, float anchorX)
+{
+    const float anchor = xToFrac (anchorX);
+    const float rel = (anchorX - timelineRect().getX()) / timelineRect().getWidth();
+    viewLen *= factor;
+    clampView();
+    viewStart = anchor - rel * viewLen;
+    clampView();
 }
 
 OpEditor::Rect OpEditor::segRect (const Segment& s) const
 {
     const auto t = timelineRect();
-    return { t.getX() + s.start * t.getWidth(), t.getY() - 6, juce::jmax (4.0f, s.len * t.getWidth()), 22 };
+    return { fracToX (s.start), t.getY() - 6, juce::jmax (4.0f, s.len / fracPerPx()), 22 };
 }
 
 int OpEditor::itemAt (Pt p) const
@@ -132,6 +193,16 @@ void OpEditor::timerCallback()
     cur = proc.getModel();
     playing = proc.timelinePlaying();
     tlSeconds = proc.timelineSeconds();
+    motionT = proc.motionTime();
+    ambiOrder = proc.ambisonicOrder();
+    inLevel = juce::jmax (proc.inputLevel(), inLevel * 0.8f);
+    clampView();
+    if (playing && drag != Drag::View && viewLen < 1.0f)
+    {
+        // keep the playing pointer in view: page along when it reaches the right edge
+        const float pf = (float) (tlSeconds / (cur.minutes * 60.0));
+        if (pf < viewStart || pf > viewStart + viewLen * 0.97f) { viewStart = pf - viewLen * 0.03f; clampView(); }
+    }
     for (int c = 0; c < bank::kCells; ++c)
     {
         cellSecs[(size_t) c] = proc.cellSeconds (c);
@@ -145,6 +216,7 @@ void OpEditor::timerCallback()
         auto it = disp.find (i.id);
         if (drag == Drag::Item && dragIndex == i.id && it != disp.end()) next[i.id] = it->second;
         else if (it == disp.end()) next[i.id] = spawnFrom.value_or (target);
+        else if (std::abs (target.x - it->second.x) > mixRect().getWidth() * 0.5f) next[i.id] = target;   // came round the back
         else next[i.id] = it->second + (target - it->second) * 0.28f;
     }
     disp = std::move (next);
@@ -212,9 +284,35 @@ void OpEditor::renderStatic (juce::Graphics& g)
     for (float y = m.getY() + 4; y < m.getBottom() - 2; y += 6)
         for (float x = m.getX() + 4; x < m.getRight() - 2; x += 6)
             g.fillRect (x, y, 1.2f, 1.2f);
+   #if OP_SPATIAL
+    {
+        // the sphere unrolled: lines at left, front, right; the horizon dotted across
+        const float x0 = m.getX() + 24, w = m.getWidth() - 48;
+        const float hy = m.getY() + 18 + (1.0f - space::kHorizonY) * (m.getHeight() - 36);
+        const float topY = m.getY() + 18;
+        g.setColour (kInk.withAlpha (0.55f));
+        for (int k = 1; k < 4; ++k) g.fillRect (x0 + w * k / 4.0f, m.getY(), k == 2 ? 1.5f : 1.0f, m.getHeight());
+        g.setColour (kMustard);
+        for (float x = m.getX() + 4; x < m.getRight() - 4; x += 9) g.fillRect (x, hy - 1, 4.0f, 2.0f);
+        g.setColour (kInk.withAlpha (0.25f));
+        g.fillRect (m.getX(), topY, m.getWidth(), 1.0f);
+        g.setColour (kInk.withAlpha (0.6f));
+        g.setFont (labelFont (9.5f));
+        const char* names[5] = { "behind", "left", "front", "right", "behind" };
+        for (int k = 0; k < 5; ++k)
+            g.drawText (names[k], k == 0 ? Rect (m.getX() + 5, m.getY() + 4, 80, 12)
+                                         : k == 4 ? Rect (m.getRight() - 85, m.getY() + 4, 80, 12)
+                                                  : Rect (x0 + w * k / 4.0f - 40, m.getY() + 4, 80, 12),
+                        k == 0 ? juce::Justification::centredLeft : k == 4 ? juce::Justification::centredRight : juce::Justification::centred, false);
+        g.drawText ("horizon", Rect (m.getRight() - 64, hy + 3, 58, 12), juce::Justification::centredRight, false);
+        g.drawText ("overhead", Rect (m.getRight() - 72, topY + 3, 66, 12), juce::Justification::centredRight, false);
+        g.drawText ("below", Rect (m.getRight() - 72, m.getBottom() - 16, 66, 12), juce::Justification::centredRight, false);
+    }
+   #else
     g.setColour (kInk.withAlpha (0.55f));
     for (int k = 1; k < 4; ++k)
         g.fillRect (m.getX() + m.getWidth() * k / 4.0f, m.getY(), 1.0f, m.getHeight());
+   #endif
 
     // frame
     g.setColour (kFrame);
@@ -239,6 +337,56 @@ void OpEditor::renderStatic (juce::Graphics& g)
         drawFxIcon (g, i, { r.getX() + 2, r.getY() + 9, 30, 30 });
     }
 
+   #if OP_SPATIAL
+    // plan: the room seen from above, you in the middle, the front at the top
+    {
+        const Pt c = planCentre();
+        g.setColour (juce::Colours::white);
+        g.fillEllipse (c.x - kPlanR - 8, c.y - kPlanR - 8, (kPlanR + 8) * 2, (kPlanR + 8) * 2);
+        g.setColour (juce::Colour (0xffc4c8d8));
+        for (float y = c.y - kPlanR; y < c.y + kPlanR; y += 6)
+            for (float x = c.x - kPlanR; x < c.x + kPlanR; x += 6)
+                if (Pt (x, y).getDistanceFrom (c) < kPlanR) g.fillRect (x, y, 1.2f, 1.2f);
+        g.setColour (kInk.withAlpha (0.3f));
+        for (float d : { 0.25f, 0.5f, 0.75f, 1.0f })
+        {
+            const float r = kPlanR * (0.08f + 0.92f * d);
+            g.drawEllipse (c.x - r, c.y - r, r * 2, r * 2, d == 1.0f ? 1.2f : 0.8f);
+        }
+        g.setColour (kInk.withAlpha (0.55f));
+        g.fillRect (c.x - 0.5f, c.y - kPlanR, 1.0f, kPlanR * 2);
+        g.fillRect (c.x - kPlanR, c.y - 0.5f, kPlanR * 2, 1.0f);
+        // you
+        g.setColour (kInk);
+        g.fillEllipse (c.x - 6, c.y - 6, 12, 12);
+        juce::Path nose;
+        nose.addTriangle (c.x - 4, c.y - 4, c.x + 4, c.y - 4, c.x, c.y - 11);
+        g.fillPath (nose);
+        g.setColour (kInk.withAlpha (0.6f));
+        g.setFont (labelFont (8.5f));
+        g.drawText ("front", Rect (c.x + 3, c.y - kPlanR + 2, 40, 11), juce::Justification::centredLeft, false);
+        g.drawText ("behind", Rect (c.x + 3, c.y + kPlanR - 13, 50, 11), juce::Justification::centredLeft, false);
+        g.drawText ("left", Rect (c.x - kPlanR + 2, c.y - 13, 40, 11), juce::Justification::centredLeft, false);
+        g.drawText ("right", Rect (c.x + kPlanR - 42, c.y - 13, 40, 11), juce::Justification::centredRight, false);
+    }
+    // motions: icons on red pointers, like the effects
+    for (int i = 0; i < motion::Count; ++i)
+    {
+        const auto r = motionRect (i);
+        juce::Path tri;
+        tri.addTriangle (r.getX() + 32, r.getY() + 2, r.getX() + 60, r.getY() + 18, r.getX() + 32, r.getY() + 34);
+        g.setColour (kRed);
+        g.fillPath (tri);
+        g.setColour (juce::Colours::white);
+        g.setFont (labelFont (9.5f));
+        g.drawText (kMotionNames[i], Rect (r.getX() - 4, r.getY() + 36, 44, 12), juce::Justification::centred, false);
+    }
+    g.setColour (juce::Colours::white);
+    g.setFont (labelFont (9.5f));
+    g.drawText ("ambisonic order", Rect (orderRect (0).getX(), orderRect (0).getY() - 16, 140, 12), juce::Justification::centredLeft, false);
+    g.drawText ("in", Rect (liveRect().getX(), liveRect().getBottom() + 2, liveRect().getWidth(), 12), juce::Justification::centred, false);
+   #endif
+
     // the oval-style word mark
     const auto lr = logoRect();
     const auto logoFont = juce::Font (juce::FontOptions ("Times New Roman", 31.0f, juce::Font::plain));
@@ -247,8 +395,118 @@ void OpEditor::renderStatic (juce::Graphics& g)
     g.setColour (juce::Colour (0xff2f2f2f));
     g.drawText ("open", lr.withWidth (w1 + 2), juce::Justification::centredLeft, false);
     g.setColour (juce::Colour (0xffc8102e));
-    g.drawText ("process", lr.withTrimmedLeft (w1), juce::Justification::centredLeft, false);
+    g.drawText (OP_SPATIAL ? "sphere" : "process", lr.withTrimmedLeft (w1), juce::Justification::centredLeft, false);
 }
+
+#if OP_SPATIAL
+//== opensphere =================================================================
+void OpEditor::drawMotionIcon (juce::Graphics& g, int type, Rect r)
+{
+    g.setColour (juce::Colour (0xffcfd0d8));
+    g.fillRect (r);
+    g.setColour (kInk);
+    const auto c = r.getCentre();
+    const float u = r.getWidth() / 30.0f;
+    juce::Path p;
+    switch (type)
+    {
+        case motion::Orbit:
+            p.addCentredArc (c.x, c.y, 9 * u, 9 * u, 0, 0.5f, 2.0f * kPi - 0.2f, true);
+            g.strokePath (p, juce::PathStrokeType (2.6f * u));
+            g.fillEllipse (c.x - 3.5f * u, c.y - 12.5f * u, 7 * u, 7 * u);
+            break;
+        case motion::Swing:
+            p.addCentredArc (c.x, c.y + 14 * u, 13 * u, 13 * u, 0, -0.9f, 0.9f, true);
+            g.strokePath (p, juce::PathStrokeType (2.6f * u));
+            g.fillEllipse (c.x - 3.5f * u, c.y - 3.5f * u, 7 * u, 7 * u);
+            break;
+        case motion::Rise:
+            g.fillRect (c.x - 10 * u, c.y + 8 * u, 20 * u, 2.6f * u);
+            p.addArrow ({ c.x, c.y + 7 * u, c.x, c.y - 11 * u }, 2.6f * u, 9 * u, 7 * u);
+            g.fillPath (p);
+            break;
+        default:
+            p.startNewSubPath (c.x - 11 * u, c.y + 4 * u);
+            p.cubicTo (c.x - 6 * u, c.y - 12 * u, c.x - 2 * u, c.y + 12 * u, c.x + 3 * u, c.y - 2 * u);
+            p.cubicTo (c.x + 6 * u, c.y - 9 * u, c.x + 9 * u, c.y - 6 * u, c.x + 11 * u, c.y - 8 * u);
+            g.strokePath (p, juce::PathStrokeType (2.6f * u, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            break;
+    }
+}
+
+void OpEditor::drawLiveSquare (juce::Graphics& g, Rect r, float level)
+{
+    g.setColour (kInk);
+    g.fillRect (r);
+    g.setColour (juce::Colours::white);
+    g.fillRect (r.reduced (r.getWidth() * 0.15f));
+    g.setColour (kRed);
+    const float k = 0.22f + 0.2f * juce::jmin (1.0f, level * 3.0f);
+    g.fillEllipse (r.reduced (r.getWidth() * (0.5f - k)));
+}
+
+void OpEditor::drawMotions (juce::Graphics& g)
+{
+    for (int i = 0; i < motion::Count; ++i)
+    {
+        juce::Graphics::ScopedSaveState ss (g);
+        if (drag == Drag::Motion && dragIndex == i && moved) g.setOpacity (0.4f);
+        drawMotionIcon (g, i, motionRect (i).withSize (30, 30).translated (2, 3));
+    }
+}
+
+void OpEditor::drawOrder (juce::Graphics& g)
+{
+    const int chosen = 1 + (int) proc.params.getRawParameterValue ("order")->load();
+    for (int k = 0; k < ambi::kMaxOrder; ++k)
+    {
+        const auto r = orderRect (k);
+        const bool on = k + 1 == chosen, inUse = ambiOrder > 0 && k + 1 <= ambiOrder;
+        g.setColour (on ? kYellow : inUse ? juce::Colour (0xffd8d9e2) : juce::Colour (0xff8a8b96));
+        g.fillRect (r);
+        g.setColour (on ? kInk : juce::Colours::white);
+        g.setFont (labelFont (9.5f));
+        g.drawText (juce::String (k + 1), r, juce::Justification::centred, false);
+    }
+    const juce::String out = ambiOrder > 0 ? juce::String (ambi::chFor (ambiOrder)) + " channels out"
+                                           : juce::String ("stereo preview");
+    g.setColour (juce::Colours::white);
+    g.setFont (labelFont (9.0f));
+    g.drawText (out, Rect (orderRect (0).getX(), orderRect (0).getBottom() + 3, 140, 12), juce::Justification::centredLeft, false);
+}
+
+void OpEditor::drawPlan (juce::Graphics& g)
+{
+    const auto items = visibleItems();
+    for (auto& d : items)
+    {
+        const auto& i = d.item;
+        const Pt p = planPos (i, motionT);
+        const float sz = 13.0f - 5.0f * i.d;
+        const auto r = Rect (p.x - sz * 0.5f, p.y - sz * 0.5f, sz, sz);
+        g.setColour (outerOf (i.cell));
+        g.fillRect (r);
+        g.setColour (juce::Colours::white);
+        g.fillRect (r.reduced (sz * 0.18f));
+        g.setColour (innerOf (i.cell));
+        g.fillRect (r.reduced (sz * 0.32f));
+        // above or below the horizon: a short stalk up or down
+        const float el = space::elevation (i.y);
+        if (std::abs (el) > 0.1f)
+        {
+            g.setColour (kInk.withAlpha (0.6f));
+            const float len = 9.0f * std::sin (el);
+            g.drawLine (p.x, p.y - sz * 0.5f * (el > 0 ? 1.0f : -1.0f), p.x, p.y - sz * 0.5f * (el > 0 ? 1.0f : -1.0f) - len, 1.2f);
+        }
+        if (d.live && i.id == selectedItem)
+        {
+            g.setColour (kRed);
+            g.drawRect (r.expanded (3), 1.5f);
+        }
+    }
+}
+
+#endif
 
 void OpEditor::drawFxIcon (juce::Graphics& g, int t, Rect r)
 {
@@ -356,6 +614,12 @@ void OpEditor::paint (juce::Graphics& g)
     drawBrowser (g);
     for (int k = 0; k < 8; ++k) drawPreset (g, k, presetRect (k), presetFlash[k]);
     drawOperators (g);
+   #if OP_SPATIAL
+    drawPlan (g);
+    drawMotions (g);
+    drawOrder (g);
+    drawLiveSquare (g, liveRect(), inLevel);
+   #endif
     drawItems (g);
     drawSnapButton (g);
     drawReels (g);
@@ -463,14 +727,30 @@ void OpEditor::drawItems (juce::Graphics& g)
         const auto& i = d.item;
         const auto r = barRect (d.voiceId, i);
         const bool silent = i.effect == fx::Mute || (anySolo && i.effect != fx::Solo);
-        const float alpha = silent ? 0.35f : 1.0f;
-
+        float alpha = silent ? 0.35f : 1.0f;
+       #if OP_SPATIAL
+        // near sounds are drawn thick and solid, far ones thin and faint
+        const float th = 1.5f - 1.0f * i.d;
+        alpha *= 1.0f - 0.45f * i.d;
+       #else
+        const float th = 1.0f;
+       #endif
+        const float cy = r.getCentreY();
         g.setColour (kInk.withAlpha (alpha));
-        g.fillRect (r.getX(), r.getY(), r.getWidth(), 2.0f);
-        g.setColour (bank::outerColour (i.cell).withAlpha (alpha));
-        g.fillRect (r.getX(), r.getY() + 2, r.getWidth(), 6.0f);
-        g.setColour (bank::innerColour (i.cell).withAlpha (alpha));
-        g.fillRect (r.getX(), r.getY() + 8, r.getWidth(), 2.0f);
+        g.fillRect (r.getX(), cy - 5 * th, r.getWidth(), 2.0f * th);
+        g.setColour (outerOf (i.cell).withAlpha (alpha));
+        g.fillRect (r.getX(), cy - 3 * th, r.getWidth(), 6.0f * th);
+        g.setColour (innerOf (i.cell).withAlpha (alpha));
+        g.fillRect (r.getX(), cy + 3 * th, r.getWidth(), 2.0f * th);
+        if (i.isLive())
+        {
+            // the live input: its level runs along the bar
+            g.setColour (juce::Colours::white.withAlpha (alpha));
+            for (float x = r.getX() + 4; x < r.getRight() - 4; x += 8)
+                g.fillRect (x, cy - 1 * th, 4.0f, 2.0f * th);
+            g.setColour (kRed.withAlpha (alpha));
+            g.fillRect (r.getX(), cy - 1 * th, r.getWidth() * juce::jmin (1.0f, inLevel * 3.0f), 2.0f * th);
+        }
         g.setColour (kRed.withAlpha (alpha));
         g.drawLine (r.getX() - 9, r.getBottom() + 1, r.getX() - 4, r.getY() - 5, 1.6f);
 
@@ -482,13 +762,25 @@ void OpEditor::drawItems (juce::Graphics& g)
         }
         if (i.effect != fx::None && ! (drag == Drag::AttachedFx && dragIndex == i.id && moved))
             drawFxIcon (g, i.effect, attachedFxRect (d.voiceId, i));
+       #if OP_SPATIAL
+        if (i.motion != motion::None && ! (drag == Drag::AttachedMotion && dragIndex == i.id && moved))
+            drawMotionIcon (g, i.motion, attachedMotionRect (d.voiceId, i));
+        if (d.live && i.id == selectedItem)
+        {
+            g.setColour (kInk);
+            g.setFont (labelFont (10.0f));
+            g.drawText ((i.isLive() ? juce::String ("input") : proc.cellName (i.cell)) + "  " + juce::String (metres (i.d), 1) + " m",
+                        juce::Rectangle<float> (r.getCentreX() - 100, r.getY() - 22, 200, 12), juce::Justification::centred, false);
+        }
+        if (i.isLive()) continue;
+       #endif
 
         if (d.live && i.id == selectedItem)
         {
             const auto s = (drag == Drag::LoopS || drag == Drag::LoopE) ? dragStrip : stripRect (d.voiceId, i);
             g.setColour (kFrameDark);
             g.fillRect (s);
-            g.setColour (bank::outerColour (i.cell));
+            g.setColour (outerOf (i.cell));
             g.fillRect (s.getX() + i.s * s.getWidth(), s.getY(), (i.e - i.s) * s.getWidth(), s.getHeight());
             g.setColour (kRed);
             for (float v : { i.s, i.e })
@@ -498,10 +790,12 @@ void OpEditor::drawItems (juce::Graphics& g)
                 t.addTriangle (x, s.getBottom() + 1, x - 6, s.getBottom() + 11, x + 6, s.getBottom() + 11);
                 g.fillPath (t);
             }
+           #if ! OP_SPATIAL
             g.setColour (kInk);
             g.setFont (labelFont (10.0f));
             g.drawText (proc.cellName (i.cell), juce::Rectangle<float> (r.getCentreX() - 100, r.getY() - 22, 200, 12),
                         juce::Justification::centred, false);
+           #endif
         }
     }
 }
@@ -544,32 +838,75 @@ void OpEditor::drawTimeline (juce::Graphics& g)
     const auto t = timelineRect();
     g.setColour (juce::Colour (0xffd6d7df));
     g.fillRect (t);
-    g.setColour (juce::Colour (0xff8a8b96));
-    for (int mnt = 1; mnt < (int) std::ceil (cur.minutes); ++mnt)
-        g.fillRect (t.getX() + mnt / cur.minutes * t.getWidth(), t.getBottom(), 1.0f, 5.0f);
+    drawTimelineScale (g);
 
-    for (auto& s : cur.segs)
     {
-        const auto r = segRect (s);
-        g.setColour (reelColour (s.snap.colour));
-        g.fillRect (r.getX(), t.getY(), r.getWidth(), t.getHeight());
-        g.setColour (kInk);
-        g.fillRect (r.getX(), r.getY(), 4.0f, r.getHeight());
-        g.fillRect (r.getRight() - 4, r.getY(), 4.0f, r.getHeight());
-        g.fillRect (r.getX() + 4, t.getY(), juce::jmin (10.0f, r.getWidth() - 8), 4.0f);
+        juce::Graphics::ScopedSaveState ss (g);
+        g.reduceClipRegion (t.withY (t.getY() - 8).withHeight (26).toNearestInt());
+        for (auto& s : cur.segs)
+        {
+            const auto r = segRect (s);
+            if (r.getRight() < t.getX() - 4 || r.getX() > t.getRight() + 4) continue;
+            g.setColour (reelColour (s.snap.colour));
+            g.fillRect (r.getX(), t.getY(), r.getWidth(), t.getHeight());
+            g.setColour (kInk);
+            const float cap = juce::jmin (4.0f, r.getWidth() * 0.3f);
+            g.fillRect (r.getX(), r.getY(), cap, r.getHeight());
+            g.fillRect (r.getRight() - cap, r.getY(), cap, r.getHeight());
+            if (r.getWidth() > 12) g.fillRect (r.getX() + 4, t.getY(), juce::jmin (10.0f, r.getWidth() - 8), 4.0f);
+        }
     }
 
-    // play pointer (red flag)
-    const float fx0 = t.getX() + cur.playStart * t.getWidth();
-    g.setColour (juce::Colours::white);
-    g.fillRect (fx0 - 1.5f, t.getY() - 34, 3.0f, 50.0f);
-    g.setColour (playing && (juce::Time::getMillisecondCounter() / 400) % 2 ? juce::Colour (0xffff6040) : kRed);
-    g.fillRect (fx0 - 8, t.getY() - 38, 13.0f, 11.0f);
+    // play pointer (red flag); off screen it waits as a small red arrow at that edge
+    const bool flagVisible = cur.playStart >= viewStart - 0.0001f && cur.playStart <= viewStart + viewLen + 0.0001f;
+    const auto flagCol = playing && (juce::Time::getMillisecondCounter() / 400) % 2 ? juce::Colour (0xffff6040) : kRed;
+    if (flagVisible)
+    {
+        const float fx0 = fracToX (cur.playStart);
+        g.setColour (juce::Colours::white);
+        g.fillRect (fx0 - 1.5f, t.getY() - 34, 3.0f, 50.0f);
+        g.setColour (flagCol);
+        g.fillRect (fx0 - 8, t.getY() - 38, 13.0f, 11.0f);
+    }
+    else
+    {
+        const bool left = cur.playStart < viewStart;
+        const float ex = left ? t.getX() - 4 : t.getRight() + 4;
+        juce::Path arrow;
+        arrow.addTriangle (ex, t.getY() - 30, ex, t.getY() - 18, ex + (left ? -9.0f : 9.0f), t.getY() - 24);
+        g.setColour (flagCol);
+        g.fillPath (arrow);
+    }
     if (playing)
     {
-        const float px = t.getX() + (float) (tlSeconds / (cur.minutes * 60.0)) * t.getWidth();
-        g.setColour (kInk);
-        g.fillRect (px - 1, t.getY() - 9, 2.0f, 28.0f);
+        const float pf = (float) (tlSeconds / (cur.minutes * 60.0));
+        if (pf >= viewStart && pf <= viewStart + viewLen)
+        {
+            const float px = fracToX (pf);
+            g.setColour (kInk);
+            g.fillRect (px - 1, t.getY() - 9, 2.0f, 28.0f);
+        }
+    }
+
+    // zoomed in: the whole composition in miniature, with the visible part as a white window
+    if (viewLen < 0.999f)
+    {
+        const auto o = overviewRect();
+        g.setColour (juce::Colour (0xff8a8b96));
+        g.fillRect (o);
+        for (auto& s : cur.segs)
+        {
+            g.setColour (reelColour (s.snap.colour));
+            g.fillRect (o.getX() + s.start * o.getWidth(), o.getY() + 1, juce::jmax (1.0f, s.len * o.getWidth()), o.getHeight() - 2);
+        }
+        const Rect win (o.getX() + viewStart * o.getWidth(), o.getY() - 2, juce::jmax (6.0f, viewLen * o.getWidth()), o.getHeight() + 4);
+        g.setColour (juce::Colours::white);
+        g.drawRect (win, 1.5f);
+        if (playing)
+        {
+            g.setColour (kInk);
+            g.fillRect (o.getX() + (float) (tlSeconds / (cur.minutes * 60.0)) * o.getWidth() - 0.5f, o.getY() - 2, 1.0f, o.getHeight() + 4);
+        }
     }
 
     // composition length wheel
@@ -583,13 +920,42 @@ void OpEditor::drawTimeline (juce::Graphics& g)
     g.fillPath (cres);
     g.setColour (juce::Colour (0xff9a2a1a));
     g.strokePath (cres, juce::PathStrokeType (1.0f));
-    const float ang = juce::jmap (cur.minutes, 1.0f, 4.0f, -2.6f, -1.0f);
+    const float ang = juce::jmap (std::log (cur.minutes) / std::log (Model::kMaxMinutes), -2.8f, -1.0f);
     g.setColour (kRed);
     g.drawLine (c.x + 18 * std::cos (ang), c.y + 18 * std::sin (ang), c.x + 42 * std::cos (ang), c.y + 42 * std::sin (ang), 2.0f);
     g.setColour (juce::Colours::white);
     g.setFont (labelFont (11.0f));
-    g.drawText (juce::String (cur.minutes, 1) + " min.", juce::Rectangle<float> (c.x - 6, c.y - 8, 80, 16),
+    g.drawText ((cur.minutes < 9.95f ? juce::String (cur.minutes, 1) : juce::String (juce::roundToInt (cur.minutes))) + " min.", juce::Rectangle<float> (c.x - 6, c.y - 8, 80, 16),
                 juce::Justification::centredLeft, false);
+}
+
+void OpEditor::drawTimelineScale (juce::Graphics& g)
+{
+    // ticks under the bar; their spacing follows the zoom, minutes are longer and get a number
+    const auto t = timelineRect();
+    const double L = cur.minutes * 60.0, secPerPx = fracPerPx() * L;
+    static const double steps[] = { 1, 2, 5, 10, 15, 30, 60, 120, 300, 600 };
+    double tick = 600, label = 600;
+    for (double st : steps) if (st / secPerPx >= 14.0) { tick = st; break; }
+    for (double st : steps) if (st / secPerPx >= 64.0) { label = st; break; }
+    const double v0 = viewStart * L, v1 = (viewStart + viewLen) * L;
+    g.setFont (labelFont (8.5f));
+    for (double sec = std::ceil (v0 / tick) * tick; sec <= v1 + 1.0e-6; sec += tick)
+    {
+        if (sec <= 0.0 || sec >= L - 1.0e-6) continue;
+        const float x = fracToX ((float) (sec / L));
+        const bool isMinute = std::fmod (sec, 60.0) < 1.0e-6;
+        const bool labelled = std::fmod (sec, label) < 1.0e-6;
+        g.setColour (juce::Colour (0xff8a8b96));
+        g.fillRect (x, t.getBottom(), 1.0f, isMinute ? 5.0f : 3.0f);
+        if ((labelled && viewLen < 0.999f) || (labelled && isMinute && L > 240.0))
+        {
+            const int m = (int) (sec / 60.0), sc = (int) std::round (sec - m * 60.0);
+            const juce::String txt = sc == 0 ? juce::String (m) + "'" : juce::String (m) + ":" + juce::String (sc).paddedLeft ('0', 2);
+            g.setColour (juce::Colours::white.withAlpha (0.85f));
+            g.drawText (txt, Rect (x - 20, t.getBottom() + 5, 40, 11), juce::Justification::centred, false);
+        }
+    }
 }
 
 void OpEditor::drawTools (juce::Graphics& g)
@@ -664,6 +1030,31 @@ void OpEditor::drawGuide (juce::Graphics& g)
     g.drawText ("click", juce::Rectangle<float> (opRect (0).getX(), 132, 52, 16), juce::Justification::centred, false);
     g.drawText ("click", juce::Rectangle<float> (opRect (1).getX(), 132, 52, 16), juce::Justification::centred, false);
 
+   #if OP_SPATIAL
+    {
+        const auto m = mixRect();
+        const float cx = m.getCentreX(), cy = m.getCentreY();
+        g.setColour (kMustard);
+        for (float x = m.getX() + 60; x < m.getRight() - 60; x += 11) g.fillRect (x, cy, 3.0f, 3.0f);
+        for (float y = m.getY() + 30; y < m.getBottom() - 26; y += 11) g.fillRect (cx, y, 3.0f, 3.0f);
+        g.setColour (kInk);
+        g.setFont (labelFont (12.0f));
+        g.drawText ("up", juce::Rectangle<float> (cx + 12, m.getY() + 22, 80, 16), juce::Justification::centredLeft, false);
+        g.drawText ("down", juce::Rectangle<float> (cx - 92, m.getBottom() - 22, 80, 16), juce::Justification::centredRight, false);
+        g.drawText ("round to the left", juce::Rectangle<float> (m.getX() + 40, cy - 18, 200, 16), juce::Justification::centredLeft, false);
+        g.drawText ("round to the right", juce::Rectangle<float> (m.getRight() - 240, cy - 18, 200, 16), juce::Justification::centredRight, false);
+        drawTag (g, { 12, 405, 300, 18 }, "try presets", juce::Justification::centredRight, kTag, kInk);
+        drawTag (g, { 690, 405, 200, 18 }, "drag effects", juce::Justification::centredLeft, kTag, kInk);
+        drawTag (g, { 616, 96, 250, 18 }, "drag motions onto sounds", juce::Justification::centredLeft, kTag, kInk);
+        drawTag (g, { 20, 206, 250, 18 }, "seen from above: drag = distance", juce::Justification::centredLeft, kTag, kInk);
+        drawTag (g, { 498, 76, 90, 18 }, "live input", juce::Justification::centredLeft, kOrange, kInk);
+        drawTag (g, { 548, 534, 76, 18 }, "drag...", juce::Justification::centredLeft, kOrange, kInk);
+        drawTag (g, { 128, 608, 246, 18 }, "... and store configurations here.", juce::Justification::centredRight, kTag, kInk);
+        drawTag (g, { 330, 694, 76, 18 }, "drag...", juce::Justification::centredLeft, kOrange, kInk);
+        drawTag (g, { 420, 694, 190, 18 }, "... and arrange here.", juce::Justification::centredLeft, kTag, kInk);
+        return;
+    }
+   #endif
     // loud / soft / left / right cross
     const auto m = mixRect();
     const float cx = m.getCentreX(), cy = m.getCentreY();
@@ -717,26 +1108,62 @@ void OpEditor::drawHelp (juce::Graphics& g)
         "end to scale, alt-drag to copy, drag them away to delete.",
         "drag a reel back into the play area to hear it again.",
         "throw a reel out of the window to delete it.",
-        "wheel: length of the composition, 1 - 4 min. red flag: click to play / stop,",
-        "drag it to set where playing starts. while it plays nothing can be changed.",
+        "wheel: length of the piece, 1 - 30 min. (shift-drag: segments keep their times).",
+        "mouse wheel / pinch on the timeline zooms, sideways scrolls, double-click: all.",
+        "red flag: click to play / stop, drag to set the start. playing locks the rest.",
         "drop audio files or folders on the browser to chop them into 64 loops;",
         "one file dropped on one cell replaces only that cell.",
         "tools (bottom right): load, built-in, skip again, capture input, render, clear.",
         "MIDI: C1-G1 presets, G#1 A1 operators, A#1 snapshot, B1 timeline, C2.. cells.",
     };
+   #if OP_SPATIAL
+    static const char* sphere1[] = {
+        "browser (top): 8 x 8 loops. drag one into the play area and it starts.",
+        "play area: the sphere around you, unrolled. the middle is in front of you,",
+        "the quarter lines are left and right, both edges are behind you.",
+        "up / down is the height: from 45 degrees below to straight overhead.",
+        "plan (top left): the room from above. drag a sound there to bring it",
+        "near or far, or turn the mouse wheel over a sound. near is loud and wide.",
+        "motions (top right): drag onto a sound - orbit, swing, rise, drift.",
+        "effects (right): fade in+out, in, out, mute, solo. drag off to remove.",
+        "red square 'in': drag it into the play area to place the live input.",
+        "click a sound: the red pointers set the part of the sample that loops.",
+        "presets: a new scene with each click. operators: random lengths / places.",
+    };
+    static const char* sphere2[] = {
+        "yellow button: store the scene as a snapshot (a reel).",
+        "drag a reel onto the timeline; drag segments to move, their right end",
+        "to scale, alt-drag to copy, drag away to delete. reels back to the play area.",
+        "wheel: length of the piece, 1 - 30 min. (shift-drag: segments keep their times).",
+        "mouse wheel / pinch on the timeline zooms, sideways scrolls, double-click: all.",
+        "red flag: click to play / stop, drag to set the start. playing locks the rest.",
+        "output: Ambisonics, ACN / SN3D (AmbiX), 1st - 7th order (numbers top right).",
+        "put a decoder or binaural plug-in after it (IEM, SPARTA, ...).",
+        "a stereo track or the desktop app hears a stereo preview.",
+        "render (tools): writes an AmbiX WAV of the timeline at the chosen order.",
+        "MIDI: C1-G1 presets, G#1 A1 operators, A#1 snapshot, B1 timeline, C2.. cells.",
+    };
+   #endif
     const auto r = Rect (150, 118, 700, 400);
     g.setColour (juce::Colour (0xffd2d3db));
     g.fillRect (r);
     g.setColour (kInk);
     g.drawRect (r, 1.5f);
-    drawTag (g, { r.getX(), r.getY(), r.getWidth(), 24 }, helpPage == 1 ? "play area" : "snapshots, timeline, sounds",
+    drawTag (g, { r.getX(), r.getY(), r.getWidth(), 24 }, helpPage == 1 ? (OP_SPATIAL ? "the space" : "play area") : (OP_SPATIAL ? "snapshots, timeline, output" : "snapshots, timeline, sounds"),
              juce::Justification::centredLeft, helpPage == 1 ? juce::Colour (0xffd8b020) : juce::Colour (0xff2a2a2a),
              helpPage == 1 ? kInk : juce::Colours::white);
     g.setColour (kInk);
     g.setFont (labelFont (12.0f));
+   #if OP_SPATIAL
+    const char* const* lines = helpPage == 1 ? sphere1 : sphere2;
+    const int n = helpPage == 1 ? (int) std::size (sphere1) : (int) std::size (sphere2);
+    juce::ignoreUnused (page1, page2);
+   #else
+    const char* const* lines = helpPage == 1 ? page1 : page2;
     const int n = helpPage == 1 ? (int) std::size (page1) : (int) std::size (page2);
+   #endif
     for (int i = 0; i < n; ++i)
-        g.drawText (helpPage == 1 ? page1[i] : page2[i], juce::Rectangle<float> (r.getX() + 18, r.getY() + 40 + i * 28.0f, r.getWidth() - 30, 20),
+        g.drawText (lines[i], juce::Rectangle<float> (r.getX() + 18, r.getY() + 36 + i * (n > 11 ? 25.0f : 28.0f), r.getWidth() - 30, 20),
                     juce::Justification::centredLeft, false);
     g.setColour (juce::Colour (0xff5a5b66));
     g.drawText ("click anywhere to close", juce::Rectangle<float> (r.getX() + 18, r.getBottom() - 26, r.getWidth() - 36, 18),
@@ -763,6 +1190,17 @@ void OpEditor::drawDragGhost (juce::Graphics& g)
         for (auto& i : cur.mix)
             if (i.id == dragIndex && i.effect != fx::None) drawFxIcon (g, i.effect, { curPt.x - 7, curPt.y - 7, 14, 14 });
     }
+   #if OP_SPATIAL
+    else if (drag == Drag::Motion && moved)
+        drawMotionIcon (g, dragIndex, { curPt.x - 15, curPt.y - 15, 30, 30 });
+    else if (drag == Drag::AttachedMotion && moved)
+    {
+        for (auto& i : cur.mix)
+            if (i.id == dragIndex && i.motion != motion::None) drawMotionIcon (g, i.motion, { curPt.x - 7, curPt.y - 7, 14, 14 });
+    }
+    else if (drag == Drag::Live && moved)
+        drawLiveSquare (g, { curPt.x - 12, curPt.y - 12, 24, 24 }, inLevel);
+   #endif
     else if (drag == Drag::Reel && moved)
     {
         for (auto& s : cur.snaps)
@@ -815,7 +1253,17 @@ void OpEditor::mouseDown (const juce::MouseEvent& e)
     for (int i = 0; i < 6; ++i)
         if (toolRect (i).contains (p)) { toolAction (i); return; }
 
-    if (flagRect().contains (p)) { drag = Drag::Flag; dragStartVal = cur.playStart; return; }
+    if (viewLen < 0.999f && overviewRect().expanded (0, 5).contains (p))
+    {
+        const auto o = overviewRect();
+        const float f = (p.x - o.getX()) / o.getWidth();
+        if (f < viewStart || f > viewStart + viewLen) { viewStart = f - viewLen * 0.5f; clampView(); }
+        drag = Drag::View; dragStartVal = viewStart; return;
+    }
+    if (flagRect().contains (p) && cur.playStart >= viewStart && cur.playStart <= viewStart + viewLen)
+    {
+        drag = Drag::Flag; dragStartVal = cur.playStart; return;
+    }
 
     const bool editable = ! playing;
     auto locked = [this] { proc.setStatus ("stop the timeline to change things"); };
@@ -823,7 +1271,7 @@ void OpEditor::mouseDown (const juce::MouseEvent& e)
     if (wheelRect().contains (p))
     {
         if (! editable) { locked(); return; }
-        drag = Drag::Wheel; dragStartVal = cur.minutes; return;
+        drag = Drag::Wheel; dragStartVal = cur.minutes; wheelStart = cur; return;
     }
     for (int k = 0; k < 8; ++k)
         if (presetRect (k).contains (p))
@@ -877,6 +1325,33 @@ void OpEditor::mouseDown (const juce::MouseEvent& e)
         dragStartVal = resize ? it->len : it->start;
         return;
     }
+   #if OP_SPATIAL
+    for (int k = 0; k < ambi::kMaxOrder; ++k)
+        if (orderRect (k).expanded (1).contains (p))
+        {
+            if (auto* prm = proc.params.getParameter ("order"))
+                prm->setValueNotifyingHost (prm->convertTo0to1 ((float) k));
+            return;
+        }
+    for (int i = 0; i < motion::Count; ++i)
+        if (motionRect (i).withWidth (58).withHeight (36).contains (p))
+        {
+            if (! editable) { locked(); return; }
+            drag = Drag::Motion; dragIndex = i; return;
+        }
+    if (liveRect().expanded (3).contains (p))
+    {
+        if (! editable) { locked(); return; }
+        drag = Drag::Live; return;
+    }
+    if (planCentre().getDistanceFrom (p) < kPlanR + 10)
+    {
+        if (! editable) { locked(); return; }
+        const int id = planItemAt (p);
+        if (id >= 0) { drag = Drag::Plan; dragIndex = id; selectedItem = id; selectedCell = -1; }
+        return;
+    }
+   #endif
     for (int i = 0; i < fx::Count; ++i)
         if (fxRect (i).withTrimmedRight (40).contains (p) || fxRect (i).withWidth (34).contains (p))
         {
@@ -893,7 +1368,7 @@ void OpEditor::mouseDown (const juce::MouseEvent& e)
     if (! editable) return;
 
     // the selected sound's loop pointers
-    if (auto* sel = cur.findItem (selectedItem))
+    if (auto* sel = cur.findItem (selectedItem); sel != nullptr && ! sel->isLive())
     {
         const auto s = stripRect (sel->id, *sel);
         for (int k = 0; k < 2; ++k)
@@ -913,6 +1388,13 @@ void OpEditor::mouseDown (const juce::MouseEvent& e)
         {
             drag = Drag::AttachedFx; dragIndex = it->id; return;
         }
+   #if OP_SPATIAL
+    for (auto it = cur.mix.rbegin(); it != cur.mix.rend(); ++it)
+        if (it->motion != motion::None && attachedMotionRect (it->id, *it).expanded (3).contains (p))
+        {
+            drag = Drag::AttachedMotion; dragIndex = it->id; return;
+        }
+   #endif
     const int id = itemAt (p);
     if (id >= 0)
     {
@@ -949,10 +1431,52 @@ void OpEditor::mouseDrag (const juce::MouseEvent& e)
             {
                 float x, y;
                 posToXY (pos, x, y);
-                proc.edit ([&] (Model& m) { if (auto* i = m.findItem (dragIndex)) { i->x = x; i->y = y; } });
+                const double mt = motionT;
+                proc.edit ([&] (Model& m) {
+                    if (auto* i = m.findItem (dragIndex))
+                    {
+                       #if OP_SPATIAL
+                        // a moving sound: put its resting place where it would have to be to be here now
+                        float mx, my;
+                        space::moved (*i, mt, mx, my);
+                        float dx = mx - i->x;
+                        dx -= std::round (dx);
+                        x -= dx; x -= std::floor (x);
+                        y = juce::jlimit (0.0f, 1.0f, y - (my - i->y));
+                       #else
+                        juce::ignoreUnused (mt);
+                       #endif
+                        i->x = x; i->y = y;
+                    }
+                });
             }
             break;
         }
+       #if OP_SPATIAL
+        case Drag::Plan:
+        {
+            // from above: the angle is the direction, the distance from you the distance
+            const Pt v = p - planCentre();
+            const float az = std::atan2 (-v.x, -v.y);
+            const float d = juce::jlimit (0.0f, 1.0f, (v.getDistanceFromOrigin() / kPlanR - 0.08f) / 0.92f);
+            const double mt = motionT;
+            proc.edit ([&] (Model& m) {
+                if (auto* i = m.findItem (dragIndex))
+                {
+                    float mx, my;
+                    space::moved (*i, mt, mx, my);
+                    float dx = mx - i->x;
+                    dx -= std::round (dx);
+                    float x = space::xForAzimuth (az) - dx;
+                    i->x = x - std::floor (x);
+                    i->d = d;
+                }
+            });
+            break;
+        }
+        case Drag::Live:
+            break;
+       #endif
         case Drag::LoopS:
         case Drag::LoopE:
         {
@@ -970,27 +1494,54 @@ void OpEditor::mouseDrag (const juce::MouseEvent& e)
         }
         case Drag::Wheel:
         {
-            const float mins = juce::jlimit (1.0f, 4.0f, std::round ((dragStartVal + (downPt.y - p.y) * 0.02f + (p.x - downPt.x) * 0.01f) * 10.0f) / 10.0f);
-            proc.edit ([&] (Model& m) { m.minutes = mins; });
+            // up / right = longer; the scale is logarithmic, so 1 - 4 min. feels as before and 30 is in reach
+            float mins = dragStartVal * std::exp (((downPt.y - p.y) + (p.x - downPt.x) * 0.5f) * 0.012f);
+            mins = juce::jlimit (Model::kMinMinutes, Model::kMaxMinutes, mins);
+            const float q = mins < 5.0f ? 0.1f : mins < 10.0f ? 0.5f : 1.0f;
+            mins = juce::jlimit (Model::kMinMinutes, Model::kMaxMinutes, std::round (mins / q) * q);
+            const bool keepTimes = e.mods.isShiftDown();
+            proc.edit ([&] (Model& m) {
+                m.minutes = mins;
+                if (! keepTimes) { m.segs = wheelStart.segs; m.playStart = wheelStart.playStart; return; }
+                // shift: the segments keep their times in seconds; the end of the piece moves
+                const float k = wheelStart.minutes / mins;
+                m.segs.clear();
+                for (auto sg : wheelStart.segs)
+                {
+                    sg.start *= k; sg.len *= k;
+                    if (sg.start >= 0.999f) continue;
+                    sg.len = juce::jmin (sg.len, 1.0f - sg.start);
+                    m.segs.push_back (sg);
+                }
+                m.playStart = juce::jmin (wheelStart.playStart * k, 0.98f);
+            });
+            break;
+        }
+        case Drag::View:
+        {
+            const auto o = overviewRect();
+            viewStart = dragStartVal + (p.x - downPt.x) / o.getWidth();
+            clampView();
             break;
         }
         case Drag::Flag:
             if (moved && ! playing)
             {
-                const float v = juce::jlimit (0.0f, 0.98f, dragStartVal + (p.x - downPt.x) / t.getWidth());
+                const float v = juce::jlimit (0.0f, 1.0f - 1.0f / (cur.minutes * 60.0f), dragStartVal + (p.x - downPt.x) * fracPerPx());
                 proc.edit ([&] (Model& m) { m.playStart = v; });
             }
             break;
         case Drag::Seg:
             proc.edit ([&] (Model& m) {
                 if (auto* s = m.findSeg (dragIndex))
-                    s->start = juce::jlimit (0.0f, 1.0f - s->len, dragStartVal + (p.x - downPt.x) / t.getWidth());
+                    s->start = juce::jlimit (0.0f, 1.0f - s->len, dragStartVal + (p.x - downPt.x) * fracPerPx());
             });
             break;
         case Drag::SegResize:
             proc.edit ([&] (Model& m) {
                 if (auto* s = m.findSeg (dragIndex))
-                    s->len = juce::jlimit (0.01f, 1.0f - s->start, dragStartVal + (p.x - downPt.x) / t.getWidth());
+                    s->len = juce::jlimit (juce::jmin (1.0f - s->start, 1.0f / (m.minutes * 60.0f)), 1.0f - s->start,
+                                           dragStartVal + (p.x - downPt.x) * fracPerPx());
             });
             break;
         default: break;
@@ -1034,6 +1585,39 @@ void OpEditor::mouseUp (const juce::MouseEvent& e)
                     proc.edit ([&] (Model& m) { if (auto* i = m.findItem (id)) i->effect = (i->effect == f ? fx::None : f); });
                 }
             break;
+       #if OP_SPATIAL
+        case Drag::Motion:
+            if (moved)
+                if (const int id = itemAt (p); id >= 0)
+                {
+                    const int mo = dragIndex;
+                    proc.edit ([&] (Model& m) { if (auto* i = m.findItem (id)) i->motion = (i->motion == mo ? motion::None : mo); });
+                }
+            break;
+        case Drag::AttachedMotion:
+            if (moved)
+            {
+                const int target = itemAt (p);
+                if (target != dragIndex)
+                    proc.edit ([&] (Model& m) {
+                        auto* from = m.findItem (dragIndex);
+                        if (from == nullptr) return;
+                        if (auto* to = m.findItem (target)) to->motion = from->motion;
+                        from->motion = motion::None;
+                    });
+            }
+            break;
+        case Drag::Live:
+            if (moved && mixRect().contains (p))
+            {
+                float x, y;
+                posToXY (p, x, y);
+                const int id = proc.addItem (kLiveCell, x, y);
+                if (id >= 0) { disp[id] = p; selectedItem = id; selectedCell = -1; }
+                else proc.setStatus ("the play area is full");
+            }
+            break;
+       #endif
         case Drag::AttachedFx:
             if (moved)
             {
@@ -1055,7 +1639,7 @@ void OpEditor::mouseUp (const juce::MouseEvent& e)
                         m.snaps.erase (std::remove_if (m.snaps.begin(), m.snaps.end(), [&] (const Snapshot& s) { return s.id == dragIndex; }), m.snaps.end());
                     });
                 else if (t.expanded (12, 26).contains (p))
-                    addSegmentAt (dragIndex, (p.x - t.getX()) / t.getWidth());
+                    addSegmentAt (dragIndex, xToFrac (p.x));
                 else if (mixRect().contains (p))
                 {
                     proc.loadSnapshot (dragIndex);
@@ -1093,6 +1677,51 @@ void OpEditor::mouseMove (const juce::MouseEvent& e)
 
 void OpEditor::mouseExit (const juce::MouseEvent&) { hoverTool = -1; }
 
+void OpEditor::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& w)
+{
+    const Pt p = toCanvas (e.position);
+   #if OP_SPATIAL
+    if (! playing && (mixRect().contains (p) || planCentre().getDistanceFrom (p) < kPlanR + 10))
+    {
+        const int id = mixRect().contains (p) ? itemAt (p) : planItemAt (p);
+        if (id < 0) return;
+        noteInput();
+        const float dy = w.isReversed ? -w.deltaY : w.deltaY;
+        // wheel up / away: nearer
+        proc.edit ([&] (Model& m) { if (auto* i = m.findItem (id)) i->d = juce::jlimit (0.0f, 1.0f, i->d - dy * 0.25f); });
+        selectedItem = id;
+        return;
+    }
+   #endif
+    if (! timelineZone().contains (p)) return;
+    noteInput();
+    const float dx = w.isReversed ? -w.deltaX : w.deltaX, dy = w.isReversed ? -w.deltaY : w.deltaY;
+    if (std::abs (dx) > std::abs (dy) || e.mods.isShiftDown())
+    {
+        // sideways (or shift + wheel): move along the piece
+        viewStart -= (std::abs (dx) > std::abs (dy) ? dx : dy) * viewLen * 0.5f;
+        clampView();
+    }
+    else
+        zoomTimeline (std::exp (-dy * 1.6f), p.x);   // up / away = closer in
+}
+
+void OpEditor::mouseMagnify (const juce::MouseEvent& e, float k)
+{
+    const Pt p = toCanvas (e.position);
+    if (timelineZone().contains (p) && k > 0) zoomTimeline (1.0f / k, p.x);
+}
+
+void OpEditor::mouseDoubleClick (const juce::MouseEvent& e)
+{
+    const Pt p = toCanvas (e.position);
+    if (! timelineZone().contains (p) || flagRect().contains (p)) return;
+    for (auto& s : cur.segs) if (segRect (s).expanded (3, 2).contains (p)) return;
+    // on the bare timeline: zoom in 4x there, or back out to the whole piece
+    if (viewLen < 0.999f) { viewLen = 1.0f; viewStart = 0.0f; }
+    else zoomTimeline (0.25f, p.x);
+}
+
 void OpEditor::addSegmentAt (int snapId, float centreFrac)
 {
     proc.edit ([&] (Model& m) {
@@ -1102,7 +1731,8 @@ void OpEditor::addSegmentAt (int snapId, float centreFrac)
             {
                 Segment s;
                 s.id = m.nextId++;
-                s.len = juce::jmin (1.0f, 20.0f / (m.minutes * 60.0f));
+                // 20 s, or an eighth of what the timeline shows when it shows a lot
+                s.len = juce::jmin (1.0f, juce::jmax (20.0f / (m.minutes * 60.0f), viewLen / 8.0f));
                 s.start = juce::jlimit (0.0f, 1.0f - s.len, centreFrac - s.len * 0.5f);
                 s.snap = sn;
                 m.segs.push_back (s);
@@ -1157,7 +1787,7 @@ void OpEditor::toolAction (int i)
         {
             int cell = selectedCell;
             if (cell < 0)
-                if (auto* it = cur.findItem (selectedItem)) cell = it->cell;
+                if (auto* it = cur.findItem (selectedItem); it != nullptr && ! it->isLive()) cell = it->cell;
             if (cell < 0) proc.setStatus ("click a browser cell first");
             else proc.reskip (cell);
             break;
@@ -1174,7 +1804,7 @@ void OpEditor::toolAction (int i)
             const auto dir = OpProcessor::userFolder();
             dir.createDirectory();
             chooser = std::make_unique<juce::FileChooser> ("Render to file",
-                dir.getChildFile ("openprocess " + juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H.%M.%S") + ".wav"), "*.wav");
+                dir.getChildFile (juce::String (JucePlugin_Name) + " " + juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H.%M.%S") + ".wav"), "*.wav");
             chooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::warnAboutOverwriting,
                                   [this] (const juce::FileChooser& fc) {
                                       const auto f = fc.getResult();
@@ -1306,7 +1936,7 @@ void OpEditor::demoStep()
             case 6:
             {
                 const auto tr = timelineRect();
-                if (! cur.snaps.empty()) addSegmentAt (cur.snaps.back().id, (demoTo.x - tr.getX()) / tr.getWidth());
+                if (! cur.snaps.empty()) addSegmentAt (cur.snaps.back().id, xToFrac (demoTo.x));
                 break;
             }
             case 7:

@@ -21,6 +21,9 @@ public:
     void mouseUp (const juce::MouseEvent&) override;
     void mouseMove (const juce::MouseEvent&) override;
     void mouseExit (const juce::MouseEvent&) override;
+    void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
+    void mouseMagnify (const juce::MouseEvent&, float) override;
+    void mouseDoubleClick (const juce::MouseEvent&) override;
 
     bool isInterestedInFileDrag (const juce::StringArray&) override { return true; }
     void fileDragMove (const juce::StringArray&, int, int) override;
@@ -34,6 +37,7 @@ public:
     void startDemo();
     void tick() { timerCallback(); }
     void selectItem (int id) { selectedItem = id; }
+    void setTimelineView (float start, float len) { viewStart = start; viewLen = len; clampView(); }
 
 private:
     using Pt = juce::Point<float>;
@@ -56,10 +60,27 @@ private:
     static Rect reelRect (int i) { return { 380.0f + i * 46.0f, 598, 40, 34 }; }
     static Rect wheelRect() { return { 232, 634, 66, 66 }; }
     static Rect timelineRect() { return { 330, 668, 540, 10 }; }
+    static Rect timelineZone() { return { 318, 618, 566, 96 }; }       // where the mouse wheel zooms the timeline
+    static Rect overviewRect() { return { 330, 703, 540, 6 }; }        // the whole composition, when zoomed in
     static Rect qRect (int i) { return { 196.0f + i * 22.0f, 560, 18, 18 }; }
     static Rect logoRect() { return { 16, 552, 178, 34 }; }
     static Rect endDemoRect() { return { 176, 582, 80, 16 }; }
     static Rect toolRect (int i) { return { 878.0f + (i % 3) * 38.0f, 612.0f + (i / 3) * 42.0f, 30, 30 }; }
+    // opensphere
+    static Pt planCentre() { return { 146, 114 }; }
+    static constexpr float kPlanR = 84.0f;
+    static Rect motionRect (int i) { return { 616.0f + i * 66.0f, 30, 62, 50 }; }
+    static Rect liveRect() { return { 512, 30, 26, 26 }; }
+    static Rect orderRect (int k) { return { 857.0f + k * 19.0f, 168, 16, 16 }; }
+    static float metres (float d) { return 0.25f + 19.75f * d * d; }
+    Pt planPos (const Item&, double t) const;
+    Rect attachedMotionRect (int voiceId, const Item&) const;
+    int planItemAt (Pt) const;
+    void drawPlan (juce::Graphics&);
+    void drawMotions (juce::Graphics&);
+    void drawOrder (juce::Graphics&);
+    static void drawMotionIcon (juce::Graphics&, int type, Rect);
+    static void drawLiveSquare (juce::Graphics&, Rect, float level);
 
     Pt itemPos (const Item&) const;
     void posToXY (Pt p, float& x, float& y) const;
@@ -69,6 +90,13 @@ private:
     Rect attachedFxRect (int voiceId, const Item&) const;
     Rect flagRect() const;
     Rect segRect (const Segment&) const;
+    // timeline zoom: the visible part of the composition, as fractions of its length
+    float fracToX (float f) const;
+    float xToFrac (float x) const;
+    float fracPerPx() const { return viewLen / timelineRect().getWidth(); }
+    void zoomTimeline (float factor, float anchorX);
+    void clampView();
+    void drawTimelineScale (juce::Graphics&);
     int itemAt (Pt) const;
     std::vector<DrawItem> visibleItems() const;
 
@@ -105,6 +133,10 @@ private:
     Model cur;
     bool playing = false;
     double tlSeconds = 0;
+    double motionT = 0;
+    int ambiOrder = 0;
+    float inLevel = 0;
+    float viewStart = 0.0f, viewLen = 1.0f;
     float scale = 1.0f;
     juce::Image staticLayer;
     std::array<double, bank::kCells> cellSecs {};
@@ -121,11 +153,12 @@ private:
     int dropCell = -2;                // file drag hover: -1 browser, >=0 cell
     float presetFlash[8] {}, opFlash[2] {}, snapFlash = 0;
 
-    enum class Drag { None, Cell, Item, LoopS, LoopE, Effect, AttachedFx, Reel, Seg, SegResize, Flag, Wheel };
+    enum class Drag { None, Cell, Item, LoopS, LoopE, Effect, AttachedFx, Reel, Seg, SegResize, Flag, Wheel, View, Motion, AttachedMotion, Plan, Live };
     Drag drag = Drag::None;
     int dragIndex = -1;
     Pt downPt, curPt, grabOffset;
     float dragStartVal = 0;
+    Model wheelStart;
     bool moved = false;
     std::deque<Pt> trail;
 

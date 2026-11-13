@@ -24,6 +24,8 @@ juce::ValueTree itemTree (const Item& i)
     t.setProperty ("s", i.s, nullptr);
     t.setProperty ("e", i.e, nullptr);
     t.setProperty ("fx", i.effect, nullptr);
+    t.setProperty ("d", i.d, nullptr);
+    t.setProperty ("motion", i.motion, nullptr);
     return t;
 }
 
@@ -31,12 +33,17 @@ Item itemFrom (const juce::ValueTree& t)
 {
     Item i;
     i.id = t.getProperty ("id", 0);
-    i.cell = juce::jlimit (0, 63, (int) t.getProperty ("cell", 0));
+    i.cell = juce::jlimit (0, kLiveCell, (int) t.getProperty ("cell", 0));
     i.x = juce::jlimit (0.0f, 1.0f, (float) t.getProperty ("x", 0.5f));
     i.y = juce::jlimit (0.0f, 1.0f, (float) t.getProperty ("y", 0.7f));
     i.s = juce::jlimit (0.0f, 1.0f, (float) t.getProperty ("s", 0.0f));
     i.e = juce::jlimit (i.s, 1.0f, (float) t.getProperty ("e", 1.0f));
     i.effect = juce::jlimit (-1, fx::Count - 1, (int) t.getProperty ("fx", -1));
+    i.d = juce::jlimit (0.0f, 1.0f, (float) t.getProperty ("d", 0.3f));
+    i.motion = juce::jlimit (-1, motion::Count - 1, (int) t.getProperty ("motion", -1));
+   #if ! OP_SPATIAL
+    if (i.isLive()) i.cell = 0;
+   #endif
     return i;
 }
 
@@ -86,7 +93,7 @@ juce::ValueTree Model::toTree() const
 Model Model::fromTree (const juce::ValueTree& t)
 {
     Model m;
-    m.minutes = juce::jlimit (1.0f, 4.0f, (float) t.getProperty ("minutes", 1.0f));
+    m.minutes = juce::jlimit (kMinMinutes, kMaxMinutes, (float) t.getProperty ("minutes", 1.0f));
     m.playStart = juce::jlimit (0.0f, 1.0f, (float) t.getProperty ("playStart", 0.0f));
     m.nextId = juce::jmax (1, (int) t.getProperty ("nextId", 1));
     for (auto c : t.getChildWithName ("mix")) m.mix.push_back (itemFrom (c));
@@ -96,7 +103,7 @@ Model Model::fromTree (const juce::ValueTree& t)
         Segment s;
         s.id = c.getProperty ("id", 0);
         s.start = juce::jlimit (0.0f, 1.0f, (float) c.getProperty ("start", 0.0f));
-        s.len = juce::jlimit (0.005f, 1.0f, (float) c.getProperty ("len", 0.125f));
+        s.len = juce::jlimit (0.0002f, 1.0f, (float) c.getProperty ("len", 0.125f));
         s.snap = snapFrom (c.getChildWithName ("snap"));
         m.segs.push_back (s);
     }

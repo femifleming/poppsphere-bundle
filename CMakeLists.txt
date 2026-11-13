@@ -36,40 +36,48 @@ set(OP_DEFS JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0 JUCE
             JUCE_USE_FLAC=1 JUCE_USE_OGGVORBIS=1 JUCE_USE_MP3AUDIOFORMAT=1
             JUCE_STANDALONE_FILTER_WINDOW_USE_KIOSK_MODE=0 _USE_MATH_DEFINES=1)
 
-juce_add_plugin(openprocess
-    VERSION ${PROJECT_VERSION}
-    COMPANY_NAME "FreakiePie"
-    BUNDLE_ID "com.freakiepie.openprocess"
-    PLUGIN_MANUFACTURER_CODE Frkp
-    PLUGIN_CODE OpPr
-    FORMATS ${OP_FORMATS}
-    PRODUCT_NAME "openprocess"
-    DESCRIPTION "Loop workspace after Oval's ovalprocess: browser, mix window, snapshots, timeline"
-    IS_SYNTH TRUE
-    NEEDS_MIDI_INPUT TRUE
-    NEEDS_MIDI_OUTPUT FALSE
-    IS_MIDI_EFFECT FALSE
-    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
-    AU_MAIN_TYPE kAudioUnitType_MusicDevice
-    VST3_CATEGORIES Instrument Sampler
-    VST2_CATEGORY kPlugCategSynth
-    LV2URI "urn:freakiepie:openprocess"
-    MICROPHONE_PERMISSION_ENABLED TRUE
-    MICROPHONE_PERMISSION_TEXT "openprocess can capture audio input into its sound browser."
-    COPY_PLUGIN_AFTER_BUILD ${OP_COPY_AFTER_BUILD})
-target_sources(openprocess PRIVATE ${OP_SOURCES})
-target_include_directories(openprocess PRIVATE Source)
-target_compile_definitions(openprocess PUBLIC ${OP_DEFS})
-target_link_libraries(openprocess
-    PRIVATE juce::juce_audio_utils juce::juce_dsp
-    PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_lto_flags)
+# openprocess (stereo) and opensphere (the same workspace as an Ambisonics encoder) share the sources
+function(op_add_plugin target code name desc spatial au_type)
+    juce_add_plugin(${target}
+        VERSION ${PROJECT_VERSION}
+        COMPANY_NAME "FreakiePie"
+        BUNDLE_ID "com.freakiepie.${target}"
+        PLUGIN_MANUFACTURER_CODE Frkp
+        PLUGIN_CODE ${code}
+        FORMATS ${OP_FORMATS}
+        PRODUCT_NAME "${name}"
+        DESCRIPTION "${desc}"
+        IS_SYNTH TRUE
+        NEEDS_MIDI_INPUT TRUE
+        NEEDS_MIDI_OUTPUT FALSE
+        IS_MIDI_EFFECT FALSE
+        EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+        AU_MAIN_TYPE ${au_type}
+        VST3_CATEGORIES Instrument Sampler
+        VST2_CATEGORY kPlugCategSynth
+        LV2URI "urn:freakiepie:${target}"
+        MICROPHONE_PERMISSION_ENABLED TRUE
+        MICROPHONE_PERMISSION_TEXT "${name} can capture audio input into its sound browser."
+        COPY_PLUGIN_AFTER_BUILD ${OP_COPY_AFTER_BUILD})
+    target_sources(${target} PRIVATE ${OP_SOURCES})
+    target_include_directories(${target} PRIVATE Source)
+    target_compile_definitions(${target} PUBLIC ${OP_DEFS} OP_SPATIAL=${spatial})
+    target_link_libraries(${target}
+        PRIVATE juce::juce_audio_utils juce::juce_dsp
+        PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_lto_flags)
 
-if(OP_BUILD_TESTS)
-    juce_add_console_app(OpTest PRODUCT_NAME "OpTest" VERSION ${PROJECT_VERSION})
-    target_sources(OpTest PRIVATE tests/OpTest.cpp ${OP_SOURCES})
-    target_include_directories(OpTest PRIVATE Source)
-    target_compile_definitions(OpTest PRIVATE ${OP_DEFS} JucePlugin_Name="openprocess" JucePlugin_VersionString="${PROJECT_VERSION}"
-        JucePlugin_Build_Standalone=0 JUCE_MODAL_LOOPS_PERMITTED=1 OP_TEST_BUILD=1
-        JucePlugin_IsSynth=1 JucePlugin_WantsMidiInput=1 JucePlugin_ProducesMidiOutput=0 JucePlugin_IsMidiEffect=0)
-    target_link_libraries(OpTest PRIVATE juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
-endif()
+    if(OP_BUILD_TESTS)
+        juce_add_console_app(${target}Test PRODUCT_NAME "${target}Test" VERSION ${PROJECT_VERSION})
+        target_sources(${target}Test PRIVATE tests/OpTest.cpp ${OP_SOURCES})
+        target_include_directories(${target}Test PRIVATE Source)
+        target_compile_definitions(${target}Test PRIVATE ${OP_DEFS} OP_SPATIAL=${spatial} JucePlugin_Name="${name}"
+            JucePlugin_VersionString="${PROJECT_VERSION}" JucePlugin_Build_Standalone=0 JUCE_MODAL_LOOPS_PERMITTED=1 OP_TEST_BUILD=1
+            JucePlugin_IsSynth=1 JucePlugin_WantsMidiInput=1 JucePlugin_ProducesMidiOutput=0 JucePlugin_IsMidiEffect=0)
+        target_link_libraries(${target}Test PRIVATE juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+    endif()
+endfunction()
+
+op_add_plugin(openprocess OpPr "openprocess"
+    "Loop workspace after Oval's ovalprocess: browser, mix window, snapshots, timeline" 0 kAudioUnitType_MusicDevice)
+op_add_plugin(opensphere OpSp "opensphere"
+    "openprocess as an Ambisonics encoder: loops and live input placed and moved around you, 1st-7th order" 1 kAudioUnitType_MusicDevice)

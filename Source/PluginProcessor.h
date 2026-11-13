@@ -18,7 +18,7 @@ public:
 
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
-    const juce::String getName() const override { return "openprocess"; }
+    const juce::String getName() const override { return JucePlugin_Name; }
     bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return false; }
     double getTailLengthSeconds() const override { return 0; }
@@ -42,6 +42,9 @@ public:
     }
     bool timelinePlaying() const { return timelinePlayingFlag.load(); }
     double timelineSeconds() const { return tlPos.load(); }
+    double motionTime() const { return motionNow.load(); }      // the clock the motions run on
+    int ambisonicOrder() const { return orderNow.load(); }      // 0 = stereo preview
+    float inputLevel() const { return inPeak.load(); }
     // pointer position of a playing voice (0..1), or -1
     float voiceFrac (int voiceId) const;
 
@@ -73,6 +76,7 @@ public:
     bool isStandalone() const { return wrapperType == wrapperType_Standalone; }
 
 private:
+    static BusesProperties buses();
     void timerCallback() override;
     void rebuildCell (int cell, const CellSource&);
     void rebuildAll();
@@ -99,6 +103,11 @@ private:
     std::atomic<bool> timelinePlayingFlag { false };
     std::atomic<double> tlPos { 0.0 };
     std::vector<float> scratchL, scratchR;
+    juce::AudioBuffer<float> inCopy, fold;
+    double motionClock = 0;
+    std::atomic<double> motionNow { 0.0 };
+    std::atomic<int> orderNow { 0 };
+    std::atomic<float> inPeak { 0.0f };
 
     // input capture ring, last 8 seconds
     juce::AudioBuffer<float> ring;
