@@ -39,6 +39,7 @@ public:
     {
         const juce::SpinLock::ScopedLockType sl (lock);
         f (model);
+        model.link();
     }
     bool timelinePlaying() const { return timelinePlayingFlag.load(); }
     double timelineSeconds() const { return tlPos.load(); }

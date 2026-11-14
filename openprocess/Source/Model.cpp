@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "Model.h"
 
 Item* Model::findItem (int id)
@@ -10,6 +11,63 @@ Segment* Model::findSeg (int id)
 {
     for (auto& s : segs) if (s.id == id) return &s;
     return nullptr;
+}
+
+void Model::link()
+{
+    const int n = (int) segs.size();
+    std::vector<int> order ((size_t) n);
+    for (int i = 0; i < n; ++i) order[(size_t) i] = i;
+    std::stable_sort (order.begin(), order.end(), [this] (int a, int b) { return segs[(size_t) a].start < segs[(size_t) b].start; });
+    for (auto& s : segs)
+    {
+        s.from = -1; s.handedOn = false;
+        s.end = juce::jmin (1.0f, s.start + s.len);
+        s.anySolo = false;
+        for (auto& i : s.snap.items) s.anySolo |= i.effect == fx::Solo;
+        s.match.assign (s.snap.items.size(), -1);
+        s.vid.resize (s.snap.items.size());
+        for (size_t k = 0; k < s.vid.size(); ++k) s.vid[k] = voiceId (s.id, (int) k);
+    }
+    // a gap of up to half a second before a gliding segment still counts as "the scene before"
+    const float tol = 0.5f / juce::jmax (1.0f, minutes * 60.0f);
+    for (int bi : order)
+    {
+        auto& B = segs[(size_t) bi];
+        if (B.morph <= 0.0f) continue;
+        int best = -1;
+        float bestEnd = -1.0f;
+        for (int ai : order)
+        {
+            const auto& A = segs[(size_t) ai];
+            if (ai == bi || A.handedOn || A.start >= B.start - 1.0e-6f) continue;
+            const float e = A.start + A.len;
+            if (e < B.start - tol) continue;
+            if (e > bestEnd || (e == bestEnd && best >= 0 && A.start > segs[(size_t) best].start)) { best = ai; bestEnd = e; }
+        }
+        if (best < 0) continue;
+        auto& A = segs[(size_t) best];
+        A.handedOn = true;
+        A.end = B.start;
+        B.from = best;
+        // the same sound in both scenes: first the very same sound of the play area, then the same cell
+        std::vector<bool> used (A.snap.items.size(), false);
+        for (int pass = 0; pass < 2; ++pass)
+            for (size_t k = 0; k < B.snap.items.size(); ++k)
+            {
+                if (B.match[k] >= 0) continue;
+                const auto& bi2 = B.snap.items[k];
+                for (size_t j = 0; j < A.snap.items.size(); ++j)
+                {
+                    const auto& aj = A.snap.items[j];
+                    if (used[j] || aj.cell != bi2.cell || (pass == 0 && aj.id != bi2.id)) continue;
+                    used[j] = true;
+                    B.match[k] = (int) j;
+                    B.vid[k] = A.vid[j];
+                    break;
+                }
+            }
+    }
 }
 
 namespace
@@ -115,6 +173,7 @@ juce::ValueTree Model::toTree() const
         st.setProperty ("id", s.id, nullptr);
         st.setProperty ("start", s.start, nullptr);
         st.setProperty ("len", s.len, nullptr);
+        if (s.morph > 0.0f) st.setProperty ("morph", s.morph, nullptr);
         st.appendChild (snapTree (s.snap), nullptr);
         sg.appendChild (st, nullptr);
     }
@@ -138,6 +197,7 @@ Model Model::fromTree (const juce::ValueTree& t)
         s.id = c.getProperty ("id", 0);
         s.start = juce::jlimit (0.0f, 1.0f, (float) c.getProperty ("start", 0.0f));
         s.len = juce::jlimit (0.0002f, 1.0f, (float) c.getProperty ("len", 0.125f));
+        s.morph = juce::jlimit (0.0f, 1.0f, (float) c.getProperty ("morph", 0.0f));
         s.snap = snapFrom (c.getChildWithName ("snap"));
         m.segs.push_back (s);
     }
@@ -146,5 +206,6 @@ Model Model::fromTree (const juce::ValueTree& t)
     for (auto& s : m.snaps) maxId = juce::jmax (maxId, s.id);
     for (auto& s : m.segs) maxId = juce::jmax (maxId, s.id);
     m.nextId = juce::jmax (m.nextId, maxId + 1);
+    m.link();
     return m;
 }

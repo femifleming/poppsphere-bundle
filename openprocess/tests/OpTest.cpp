@@ -199,6 +199,44 @@ int main (int argc, char** argv)
         CHECK (Engine::buildTimeline (tm, cells, 8.0, vs.data(), 256) == 2, "timeline plays segment 2 at 8 s");
         CHECK (Engine::buildTimeline (tm, cells, 30.0, vs.data(), 256) == 0, "timeline is silent at 30 s");
 
+        // glides: segment 2 morphs from segment 1 over half its length (3 s)
+        {
+            Model gm = tm;
+            gm.segs[1].morph = 0.5f;
+            gm.segs[1].snap.items[0].x = 1.0f - gm.segs[1].snap.items[0].x;
+            gm.segs[1].snap.items[0].s = 0.5f;
+            gm.link();
+            CHECK (gm.segs[1].from == 0 && gm.segs[0].handedOn, "segment 2 glides from segment 1");
+            CHECK (gm.segs[1].match[0] == 0 && gm.segs[1].match[1] == 3, "glide finds the same sounds");
+            CHECK (gm.segs[1].vid[0] == gm.segs[0].vid[0], "a sound that carries on keeps its voice");
+            const int a = Engine::buildTimeline (gm, cells, 7.5, vs.data(), 256);
+            CHECK (a == 6, "half way through the glide: 2 sounds move, 4 fade out");
+            float pan0 = -1, gainOut = -1;
+            for (int k = 0; k < a; ++k)
+            {
+                if (vs[(size_t) k].id == gm.segs[0].vid[0]) pan0 = vs[(size_t) k].pan;
+                if (vs[(size_t) k].id == gm.segs[0].vid[1]) gainOut = vs[(size_t) k].gain;
+            }
+           #if ! OP_SPATIAL
+            const float x0 = tm.segs[0].snap.items[0].x;
+            CHECK (std::abs (pan0 - 0.5f * (x0 + (1.0f - x0))) < 0.02f, "a gliding sound is half way across");
+            CHECK (gainOut > 0.0f && gainOut < volumeGain (tm.segs[0].snap.items[1].y) * 0.6f, "a sound that is not in the next scene fades");
+           #else
+            juce::ignoreUnused (pan0, gainOut);
+           #endif
+            CHECK (Engine::buildTimeline (gm, cells, 9.5, vs.data(), 256) == 2, "after the glide only the new scene plays");
+            CHECK (Engine::buildTimeline (gm, cells, 5.9, vs.data(), 256) == 6, "before the glide the old scene plays");
+            const auto gb = Model::fromTree (gm.toTree());
+            CHECK (std::abs (gb.segs[1].morph - 0.5f) < 1e-4f && gb.segs[1].from == 0, "glides survive save / load");
+            // a glide with nothing before it fades in
+            Model fm = tm;
+            fm.segs.erase (fm.segs.begin());
+            fm.segs[0].morph = 0.5f;
+            fm.link();
+            const int f = Engine::buildTimeline (fm, cells, 6.3, vs.data(), 256);
+            CHECK (f == 2 && vs[0].gain < 0.1f * volumeGain (fm.segs[0].snap.items[0].y) + 0.01f, "a glide from nothing fades in");
+        }
+
         // a 30 minute piece: a segment near the end still plays
         {
             Model lm = tm;
@@ -462,7 +500,9 @@ int main (int argc, char** argv)
                 for (int k = 0; k < 40; ++k)
                 {
                     Segment s; s.id = m.nextId++; s.start = k / 40.0f + 0.004f; s.len = 0.012f + 0.01f * (k % 3);
-                    s.snap = m.snaps[(size_t) (k % (int) m.snaps.size())]; s.snap.colour = k % 6; m.segs.push_back (s);
+                    s.snap = m.snaps[(size_t) (k % (int) m.snaps.size())]; s.snap.colour = k % 6;
+                    if (k % 4 == 1) { s.start = (k - 1) / 40.0f + 0.004f + 0.012f + 0.01f * ((k - 1) % 3); s.morph = 0.6f; }
+                    m.segs.push_back (s);
                 }
             });
             oe->setTimelineView (0.0f, 1.0f); oe->tick();

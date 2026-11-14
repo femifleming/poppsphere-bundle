@@ -67,7 +67,7 @@ private:
     static Rect logoRect() { return { 16, 552, 178, 34 }; }
     static Rect endDemoRect() { return { 176, 582, 80, 16 }; }
     static Rect toolRect (int i) { return { 878.0f + (i % 3) * 38.0f, 612.0f + (i / 3) * 42.0f, 30, 30 }; }
-    // opensphere
+    // openfield
     static Pt planCentre() { return { 146, 114 }; }
     static constexpr float kPlanR = 84.0f;
     static Rect motionRect (int i) { return { 598.0f + (i % 6) * 44.0f, 16.0f + (i / 6) * 52.0f, 42, 30 }; }
@@ -173,7 +173,7 @@ private:
     int dropCell = -2;                // file drag hover: -1 browser, >=0 cell
     float presetFlash[8] {}, opFlash[2] {}, snapFlash = 0;
 
-    enum class Drag { None, Cell, Item, LoopS, LoopE, Effect, AttachedFx, Reel, Seg, SegResize, Flag, Wheel, View, FzRail, Motion, AttachedMotion, Plan, Live, GlobeTurn, SceneTurn, Dist };
+    enum class Drag { None, Cell, Item, LoopS, LoopE, Effect, AttachedFx, Reel, Seg, SegResize, SegMorph, Flag, Wheel, View, FzRail, Motion, AttachedMotion, Plan, Live, GlobeTurn, SceneTurn, Dist };
     Drag drag = Drag::None;
     int dragIndex = -1;
     Pt downPt, curPt, grabOffset;

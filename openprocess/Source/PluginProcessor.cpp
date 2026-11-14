@@ -59,7 +59,7 @@ bool writeWav (const juce::File& f, const juce::AudioBuffer<float>& b, double ra
 
 } // namespace
 
-// Stereo in. openprocess: stereo out. opensphere: Ambisonics out - 3rd order (16 channels) as an
+// Stereo in. openprocess: stereo out. openfield: Ambisonics out - 3rd order (16 channels) as an
 // Audio Unit, up to 7th (64) elsewhere so a track that wide has room; the order setting says how many
 // are used. The desktop app plays a stereo preview (and renders full Ambisonic files).
 SpaceParams OpProcessor::readSpace() const
@@ -282,6 +282,7 @@ void OpProcessor::setModel (const Model& m)
     {
         const juce::SpinLock::ScopedLockType sl (lock);
         model = m;
+        model.link();
     }
     timelinePlayingFlag = m.timelinePlaying;
 }
@@ -662,7 +663,7 @@ void OpProcessor::renderToFile (const juce::File& file)
     pool.addJob ([this, m, cs, file, master, order, sp, renderFlock]
     {
         // written as it goes (a 30 minute piece in 64 channels would not fit in memory):
-        // openprocess 16-bit stereo, opensphere 24-bit AmbiX (ACN / SN3D) at the chosen order
+        // openprocess 16-bit stereo, openfield 24-bit AmbiX (ACN / SN3D) at the chosen order
         constexpr double rate = 48000.0;
         const double L = m.minutes * 60.0;
         const bool useTimeline = ! m.segs.empty();

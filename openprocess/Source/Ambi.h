@@ -1,4 +1,4 @@
-// Ambisonics for opensphere: ACN channel order, SN3D normalisation (AmbiX), no Condon-Shortley
+// Ambisonics for openfield: ACN channel order, SN3D normalisation (AmbiX), no Condon-Shortley
 // phase, up to 7th order (64 channels). x to the front, y to the left, z up; azimuth turns to the
 // left, elevation goes up - as the IEM and SPARTA plug-ins have it. (Same maths as Leitner's.)
 #pragma once

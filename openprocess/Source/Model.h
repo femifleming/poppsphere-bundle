@@ -7,10 +7,10 @@
 
 namespace fx { enum { None = -1, FadeInOut = 0, FadeIn = 1, FadeOut = 2, Mute = 3, Solo = 4, Freeze = 5, Count = 6 }; }
 
-// opensphere: ways a sound can move through the space by itself
+// openfield: ways a sound can move through the space by itself
 namespace motion { enum { None = -1, Orbit = 0, Swing, Rise, Drift, Spiral, Figure8, Arc, Approach, Hop, Flutter, Boids, Lorenz, Count }; }
 
-// opensphere: the live input, placed in the space like a sound from the browser
+// openfield: the live input, placed in the space like a sound from the browser
 constexpr int kLiveCell = 64;
 
 struct Item                 // one looping sound in the mix window
@@ -26,7 +26,7 @@ struct Item                 // one looping sound in the mix window
     int fzGen = 0;
     int fzMode = 0;           // 0 matrix (8 frames at random), 1 scan (sweeps through ~1.4 s)
     float fzScan = 0.6f;      // scan speed
-    // opensphere only: x is the direction around you, y the height, d the distance
+    // openfield only: x is the direction around you, y the height, d the distance
     float d = 0.3f;         // 0 at your head .. 1 far away
     int motion = motion::None;
     double motionStart = 0;  // the motion clock when the motion was put on (each sound runs its own)
@@ -35,7 +35,7 @@ struct Item                 // one looping sound in the mix window
     bool isLive() const { return cell == kLiveCell; }
 };
 
-// opensphere's boids: every sounding sound with the boids motion is one bird of a single flock.
+// openfield's boids: every sounding sound with the boids motion is one bird of a single flock.
 // The flock is simulated block by block (it is the one motion that depends on the others), with
 // cohesion, separation, alignment, a pull home and a little wandering. Positions are offsets from
 // each sound's own place, in play-area units (x wraps round you), plus distance.
@@ -111,7 +111,7 @@ struct Flock
     const Bird* find (int id) const { for (auto& b : birds) if (b.id == id) return &b; return nullptr; }
 };
 
-// opensphere's distance settings and scene rotation (from the parameters)
+// openfield's distance settings and scene rotation (from the parameters)
 struct SpaceParams
 {
     float rolloff = 0.5f;   // how fast the level falls with distance
@@ -129,7 +129,7 @@ struct Snapshot
     int id = 0;
     int colour = 0;
     std::vector<Item> items;
-    // opensphere: the global settings when it was taken (motion speed, distance, scene turn), so the
+    // openfield: the global settings when it was taken (motion speed, distance, scene turn), so the
     // timeline can sequence them
     bool hasSpace = false;
     SpaceParams space;
@@ -139,7 +139,29 @@ struct Segment              // a snapshot placed on the timeline (keeps its own 
 {
     int id = 0;
     float start = 0.0f, len = 0.125f;   // fractions of the composition length
+    float morph = 0.0f;     // 0: a cut. above 0: the first part of the segment (this fraction of its length)
+                            // glides smoothly from the scene before it into this one
     Snapshot snap;
+
+    // worked out by Model::link() (not saved)
+    int from = -1;          // index of the segment it glides from (-1: none, it fades in)
+    bool handedOn = false;  // a later segment glides out of this one, so it ends where that one starts
+    float end = 0.125f;     // where it really stops sounding (fraction)
+    bool anySolo = false;
+    std::vector<int> match; // for each of its sounds, the same sound in the scene before (-1: none)
+    std::vector<int> vid;   // voice ids: a sound that carries on keeps its voice, so its loop runs on
+};
+
+// one sound on the timeline at a moment: in a glide it has a place in the scene before (a) and in
+// this one (b), or only in one of them (fading out / in); w is how far the glide has come (0..1)
+struct TlVoice
+{
+    const Item* a = nullptr;
+    const Item* b = nullptr;
+    const Segment* segA = nullptr;
+    const Segment* segB = nullptr;
+    float w = 1.0f, edge = 1.0f;
+    int vid = 0;
 };
 
 struct Model
@@ -157,6 +179,53 @@ struct Model
 
     Item* findItem (int id);
     Segment* findSeg (int id);
+    void link();    // after any change to the timeline: who glides from whom, and the voice ids
+    static int voiceId (int segId, int itemIndex) { return 1000000 + segId * 256 + itemIndex; }
+
+    // every sound of the timeline at t seconds (no allocation: the audio thread calls it)
+    template <class F> void forEachTimelineVoice (double t, F&& f) const
+    {
+        const double L = minutes * 60.0;
+        for (const auto& B : segs)
+        {
+            const double t0 = B.start * L, t1 = std::fmin (L, (double) (B.handedOn ? B.end : B.start + B.len) * L);
+            if (t < t0 || t >= t1) continue;
+            const double mlen = B.morph * B.len * L;
+            float w = 1.0f;
+            if (mlen > 0.0)
+            {
+                float u = (float) ((t - t0) / mlen);
+                u = u < 0.0f ? 0.0f : (u > 1.0f ? 1.0f : u);
+                w = u * u * (3.0f - 2.0f * u);
+            }
+            const float edgeIn = mlen > 0.0 ? 1.0f : (float) std::fmin (1.0, (t - t0) / 0.03);
+            const float edgeOut = B.handedOn ? 1.0f : (float) std::fmin (1.0, (t1 - t) / 0.03);
+            const float edge = std::fmin (edgeIn, edgeOut);
+            const Segment* A = (B.from >= 0 && B.from < (int) segs.size() && w < 1.0f) ? &segs[(size_t) B.from] : nullptr;
+            for (size_t k = 0; k < B.snap.items.size(); ++k)
+            {
+                const int j = (A != nullptr && k < B.match.size()) ? B.match[k] : -1;
+                TlVoice v;
+                v.a = j >= 0 ? &A->snap.items[(size_t) j] : nullptr;
+                v.b = &B.snap.items[k];
+                v.segA = A; v.segB = &B; v.w = w; v.edge = edge;
+                v.vid = k < B.vid.size() ? B.vid[k] : voiceId (B.id, (int) k);
+                f (v);
+            }
+            if (A != nullptr)
+                for (size_t j = 0; j < A->snap.items.size(); ++j)
+                {
+                    bool taken = false;
+                    for (int mk : B.match) taken |= mk == (int) j;
+                    if (taken) continue;
+                    TlVoice v;
+                    v.a = &A->snap.items[j];
+                    v.segA = A; v.segB = &B; v.w = w; v.edge = edge;
+                    v.vid = j < A->vid.size() ? A->vid[j] : voiceId (A->id, (int) j);
+                    f (v);
+                }
+        }
+    }
     juce::ValueTree toTree() const;
     static Model fromTree (const juce::ValueTree&);
 };
@@ -165,7 +234,7 @@ inline float volumeGain (float y) { return y * y; }
 
 // straight ahead, both edges straight behind), bottom to top from 45 degrees below to overhead.
 // straight ahead, both edges straight behind), bottom to top from 45 degrees below to overhead.
-// opensphere's play area is the sphere unrolled: left to right goes once round you (the middle is
+// openfield's play area is the sphere unrolled: left to right goes once round you (the middle is
 // straight ahead, both edges straight behind), bottom to top from 45 degrees below to overhead.
 namespace space
 {

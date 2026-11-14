@@ -3,15 +3,27 @@
 
 namespace
 {
+// the field colour: openprocess blue, openfield green
+#if OP_SPATIAL
+const juce::Colour kBlue (0xff2f9a52), kBlueTop (0xff3aae5e), kBlueBottom (0xff237a40);
+const juce::Colour kGlint (0xffb4f5c8), kGlint0 (0x0090e0a8), kAccent (0xff6fd08c), kAccentDark (0xff1f7a3c), kLink (0xff127a34);
+#else
 const juce::Colour kBlue (0xff3478d4), kBlueTop (0xff3c88e2), kBlueBottom (0xff2c5fc0);
+const juce::Colour kGlint (0xffa8dcff), kGlint0 (0x0088c8f0), kAccent (0xff7cc4ee), kAccentDark (0xff3060c8), kLink (0xff2050e0);
+#endif
 const juce::Colour kFrame (0xffc9cad3), kFrameDark (0xffb5b6c2), kInk (0xff1e1e1e);
 const juce::Colour kRed (0xffd42a24), kMustard (0xffc4a232), kOrange (0xffe08a1e), kYellow (0xfff2d41f);
 const juce::Colour kTag (0xffc8c9d1);
 constexpr float kPi = juce::MathConstants<float>::pi;
 
 const char* kToolNames[6] = { "load sounds", "built-in sounds", "skip again", "capture input", "render to file", "clear (shift: all)" };
+#if OP_SPATIAL
+const juce::uint32 kBracketColours[8] = { 0xff5cc078, 0xff1e7a3a, 0xff2e8a5a, 0xff23944a,
+                                          0xff6aa84a, 0xff268a48, 0xff86d29a, 0xff1a6a34 };
+#else
 const juce::uint32 kBracketColours[8] = { 0xff6878d8, 0xff2a3ea8, 0xff4a3aa8, 0xff2a4ac0,
                                           0xff7a58c8, 0xff3048b8, 0xff8090e0, 0xff2438a0 };
+#endif
 const char* kBracketGlyphs[8] = { "}", "}", ")", "}", "(", "[", "o", "[" };
 const bool kBracketPixel[8] = { true, false, false, true, false, false, false, true };
 
@@ -53,7 +65,11 @@ juce::Font OpEditor::labelFont (float size)
 
 juce::Colour OpEditor::reelColour (int c)
 {
+   #if OP_SPATIAL   // no green reel on the green field
+    static const juce::uint32 cols[6] = { 0xfff0c818, 0xff7a4cc8, 0xffe878a8, 0xffe07828, 0xff48a8c8, 0xffd83030 };
+   #else
     static const juce::uint32 cols[6] = { 0xfff0c818, 0xff2e9a48, 0xffe878a8, 0xffe07828, 0xff48a8c8, 0xffd83030 };
+   #endif
     return juce::Colour (cols[((c % 6) + 6) % 6]);
 }
 
@@ -231,15 +247,31 @@ std::vector<OpEditor::DrawItem> OpEditor::visibleItems() const
     if (playing)
     {
         const double L = cur.minutes * 60.0;
-        for (auto& s : cur.segs)
-            if (tlSeconds >= s.start * L && tlSeconds < (s.start + s.len) * L)
-                for (size_t k = 0; k < s.snap.items.size(); ++k)
-                {
-                    Item it = s.snap.items[k];
-                    it.id = Engine::timelineVoiceId (s.id, (int) k);
-                    it.motionStart = s.start * L;
-                    v.push_back ({ Engine::timelineVoiceId (s.id, (int) k), it, false });
-                }
+        cur.forEachTimelineVoice (tlSeconds, [&] (const TlVoice& tv) {
+            // in a glide the sound is drawn between its two places; one that only fades goes with it
+            const bool fromA = tv.b == nullptr || (tv.a != nullptr && tv.w < 0.5f);
+            Item it = fromA ? *tv.a : *tv.b;
+            if (tv.a != nullptr && tv.b != nullptr)
+            {
+                const float w = tv.w;
+               #if OP_SPATIAL
+                float dx = std::fmod (tv.b->x - tv.a->x, 1.0f);
+                if (dx > 0.5f) dx -= 1.0f;
+                if (dx < -0.5f) dx += 1.0f;
+                it.x = tv.a->x + dx * w; it.x -= std::floor (it.x);
+               #else
+                it.x = tv.a->x + (tv.b->x - tv.a->x) * w;
+               #endif
+                it.y = tv.a->y + (tv.b->y - tv.a->y) * w;
+                it.d = tv.a->d + (tv.b->d - tv.a->d) * w;
+                it.s = tv.a->s + (tv.b->s - tv.a->s) * w;
+                it.e = juce::jmax (it.s, tv.a->e + (tv.b->e - tv.a->e) * w);
+            }
+            else if (tv.b == nullptr && tv.a != nullptr && tv.w > 0.97f) return;   // all but gone
+            it.id = tv.vid;
+            it.motionStart = (fromA ? tv.segA : tv.segB)->start * L;
+            v.push_back ({ tv.vid, it, false });
+        });
     }
     else
         for (auto& i : cur.mix) v.push_back ({ i.id, i, true });
@@ -402,8 +434,8 @@ void OpEditor::renderStatic (juce::Graphics& g)
         const auto r = fxRect (i);
         juce::Path back, tri;
         back.addTriangle (r.getX() + 46, r.getY() + 8, r.getX() + 92, r.getY() + 32, r.getX() + 46, r.getY() + 56);
-        g.setGradientFill (juce::ColourGradient (juce::Colour (0xffa8dcff), r.getX() + 50, r.getY() + 30,
-                                                 juce::Colour (0x0088c8f0), r.getX() + 92, r.getY() + 30, false));
+        g.setGradientFill (juce::ColourGradient (kGlint, r.getX() + 50, r.getY() + 30,
+                                                 kGlint0, r.getX() + 92, r.getY() + 30, false));
         g.fillPath (back);
         tri.addTriangle (r.getX() + 32, r.getY(), r.getX() + 74, r.getY() + 24, r.getX() + 32, r.getY() + 48);
         g.setColour (kRed);
@@ -448,11 +480,11 @@ void OpEditor::renderStatic (juce::Graphics& g)
     g.setColour (juce::Colour (0xff2f2f2f));
     g.drawText ("open", lr.withWidth (w1 + 2), juce::Justification::centredLeft, false);
     g.setColour (juce::Colour (0xffc8102e));
-    g.drawText (OP_SPATIAL ? "sphere" : "process", lr.withTrimmedLeft (w1), juce::Justification::centredLeft, false);
+    g.drawText (OP_SPATIAL ? "field" : "process", lr.withTrimmedLeft (w1), juce::Justification::centredLeft, false);
 }
 
 #if OP_SPATIAL
-//== opensphere =================================================================
+//== openfield =================================================================
 void OpEditor::drawMotionIcon (juce::Graphics& g, int type, Rect r)
 {
     g.setColour (juce::Colour (0xffcfd0d8));
@@ -926,7 +958,7 @@ void OpEditor::paint (juce::Graphics& g)
     }
     if (demo)
     {
-        g.setColour (juce::Colour (0xff2050e0));
+        g.setColour (kLink);
         g.setFont (labelFont (11.0f));
         g.drawText ("end demo", endDemoRect(), juce::Justification::centredLeft, false);
     }
@@ -1103,7 +1135,7 @@ void OpEditor::drawItems (juce::Graphics& g)
                 {
                     const Rect h = mr.withWidth (mr.getWidth() * 0.5f).translated (k * mr.getWidth() * 0.5f, 0);
                     const bool on = (k == 1) == scan;
-                    g.setColour (on ? juce::Colour (0xff7cc4ee) : kFrameDark);
+                    g.setColour (on ? kAccent : kFrameDark);
                     g.fillRect (h.reduced (1, 0));
                     g.setColour (on ? kInk : juce::Colours::white);
                     g.drawText (k == 0 ? "matrix" : "scan", h, juce::Justification::centred, false);
@@ -1123,7 +1155,7 @@ void OpEditor::drawItems (juce::Graphics& g)
                 const Rect rail (rr.getX(), rr.getY() + 12, rr.getWidth(), 3);
                 g.setColour (kFrameDark);
                 g.fillRect (rail);
-                g.setColour (juce::Colour (0xff7cc4ee));
+                g.setColour (kAccent);
                 g.fillRect (rail.withWidth (rail.getWidth() * vals[k]));
                 juce::Path t;
                 const float x = rail.getX() + vals[k] * rail.getWidth();
@@ -1189,6 +1221,28 @@ void OpEditor::drawTimeline (juce::Graphics& g)
             g.fillRect (r.getX(), r.getY(), cap, r.getHeight());
             g.fillRect (r.getRight() - cap, r.getY(), cap, r.getHeight());
             if (r.getWidth() > 12) g.fillRect (r.getX() + 4, t.getY(), juce::jmin (10.0f, r.getWidth() - 8), 4.0f);
+            if (s.morph > 0.0f)
+            {
+                // the glide: the colour of the scene before runs into this one, under a white slope
+                const float mw = s.morph * s.len / fracPerPx();
+                const auto prev = s.from >= 0 && s.from < (int) cur.segs.size() ? reelColour (cur.segs[(size_t) s.from].snap.colour)
+                                                                                 : juce::Colour (0xffd6d7df);
+                const Rect mr (r.getX(), t.getY(), juce::jmax (1.0f, mw), t.getHeight());
+                g.setGradientFill (juce::ColourGradient (prev, mr.getX(), 0, reelColour (s.snap.colour), mr.getRight(), 0, false));
+                g.fillRect (mr);
+                juce::Path slope;
+                slope.startNewSubPath (mr.getX(), t.getBottom());
+                slope.lineTo (mr.getRight(), t.getY());
+                g.setColour (juce::Colours::white);
+                g.strokePath (slope, juce::PathStrokeType (1.5f));
+                g.setColour (kInk);
+                g.fillRect (r.getX(), r.getY(), juce::jmin (4.0f, r.getWidth() * 0.3f), r.getHeight());
+                // its handle: a small white triangle on the cap
+                juce::Path h;
+                h.addTriangle (mr.getRight() - 4, r.getY(), mr.getRight() + 4, r.getY(), mr.getRight(), r.getY() + 5);
+                g.setColour (juce::Colours::white);
+                g.fillPath (h);
+            }
         }
     }
 
@@ -1404,7 +1458,7 @@ void OpEditor::drawGuide (juce::Graphics& g)
         t.applyTransform (juce::AffineTransform::rotation (angle).translated (p.x, p.y));
         g.setColour (kRed);
         g.fillPath (t);
-        g.setColour (juce::Colour (0xff3060c8));
+        g.setColour (kAccentDark);
         g.strokePath (t, juce::PathStrokeType (1.0f));
     };
     arrow ({ cx, m.getY() + 16 }, 0);
@@ -1443,8 +1497,8 @@ void OpEditor::drawHelp (juce::Graphics& g)
         "yellow button: store the play area as a snapshot (a reel).",
         "drag a reel onto the timeline. drag segments to move them, their right",
         "end to scale, alt-drag to copy, drag them away to delete.",
-        "drag a reel back into the play area to hear it again.",
-        "throw a reel out of the window to delete it.",
+        "glide: drag a segment's left end (or double-click it) to morph smoothly",
+        "from the scene before. reels: back into the play area / out of the window.",
         "wheel: length of the piece, 1 - 30 min. (shift-drag: segments keep their times).",
         "mouse wheel / pinch on the timeline zooms, sideways scrolls, double-click: all.",
         "red flag: click to play / stop, drag to set the start. playing locks the rest.",
@@ -1473,12 +1527,13 @@ void OpEditor::drawHelp (juce::Graphics& g)
         "and the rails and scene turn too - so the timeline sequences all of it.",
         "drag a reel onto the timeline; drag segments to move, their right end",
         "to scale, alt-drag to copy, drag away to delete. reels back to the play area.",
+        "glide: drag a segment's left end (or double-click it): it morphs smoothly from",
+        "the scene before - places, distance, loop parts, rails and scene turn.",
         "wheel: length of the piece, 1 - 30 min. (shift-drag: segments keep their times).",
         "mouse wheel / pinch on the timeline zooms, sideways scrolls, double-click: all.",
         "red flag: click to play / stop, drag to set the start. playing locks the rest.",
         "output: Ambisonics, ACN / SN3D (AmbiX), 1st - 7th order (numbers top right).",
-        "put a decoder or binaural plug-in after it (IEM, SPARTA, ...); a stereo track",
-        "or the desktop app hears a stereo preview.",
+        "put a decoder / binaural plug-in after it; stereo tracks hear a preview.",
         "render (tools): writes an AmbiX WAV of the timeline at the chosen order.",
         "MIDI: C1-G1 presets, G#1 A1 operators, A#1 snapshot, B1 timeline, C2.. cells.",
     };
@@ -1649,6 +1704,16 @@ void OpEditor::mouseDown (const juce::MouseEvent& e)
         if (! editable) { locked(); return; }
         int id = it->id;
         const bool resize = p.x > r.getRight() - 7;
+        // the glide handle: the segment's left cap (or the end of its glide), and the cmd key anywhere on it
+        const float mx = r.getX() + it->morph * it->len / fracPerPx();
+        const bool glide = ! resize && (e.mods.isCommandDown() || (r.getWidth() > 18 && (p.x < r.getX() + 6 || (it->morph > 0 && std::abs (p.x - mx) < 5))));
+        if (glide)
+        {
+            drag = Drag::SegMorph;
+            dragIndex = id;
+            dragStartVal = it->morph;
+            return;
+        }
         if (e.mods.isAltDown() && ! resize)
         {
             const Segment copy = *it;
@@ -1965,6 +2030,19 @@ void OpEditor::mouseDrag (const juce::MouseEvent& e)
                     s->start = juce::jlimit (0.0f, 1.0f - s->len, dragStartVal + (p.x - downPt.x) * fracPerPx());
             });
             break;
+        case Drag::SegMorph:
+        {
+            float secs = 0.0f;
+            proc.edit ([&] (Model& m) {
+                if (auto* s = m.findSeg (dragIndex))
+                {
+                    s->morph = juce::jlimit (0.0f, 1.0f, dragStartVal + (p.x - downPt.x) * fracPerPx() / juce::jmax (1.0e-6f, s->len));
+                    secs = s->morph * s->len * m.minutes * 60.0f;
+                }
+            });
+            proc.setStatus (secs <= 0.0f ? juce::String ("cut (no glide)") : "glide " + juce::String (secs, secs < 10.0f ? 1 : 0) + " s from the scene before");
+            break;
+        }
         case Drag::SegResize:
             proc.edit ([&] (Model& m) {
                 if (auto* s = m.findSeg (dragIndex))
@@ -2217,7 +2295,16 @@ void OpEditor::mouseDoubleClick (const juce::MouseEvent& e)
     }
    #endif
     if (! timelineZone().contains (p) || flagRect().contains (p)) return;
-    for (auto& s : cur.segs) if (segRect (s).expanded (3, 2).contains (p)) return;
+    // on a segment: glide in from the scene before over half of it, or back to a cut
+    for (auto& s : cur.segs)
+        if (segRect (s).expanded (3, 2).contains (p))
+        {
+            if (playing) return;
+            const int id = s.id;
+            proc.edit ([&] (Model& m) { if (auto* sg = m.findSeg (id)) sg->morph = sg->morph > 0.0f ? 0.0f : 0.5f; });
+            proc.setStatus (s.morph > 0.0f ? "cut" : "glides in from the scene before");
+            return;
+        }
     // on the bare timeline: zoom in 4x there, or back out to the whole piece
     if (viewLen < 0.999f) { viewLen = 1.0f; viewStart = 0.0f; }
     else zoomTimeline (0.25f, p.x);

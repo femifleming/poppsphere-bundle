@@ -40,7 +40,7 @@ product() {   # product sub-dir target manual-pdf
 }
 
 product openprocess openprocess openprocess "openprocess/docs/manual/openprocess Manual.pdf"
-product opensphere  openprocess opensphere  "openprocess/docs/manual-sphere/opensphere Manual.pdf"
+product openfield  openprocess openfield  "openprocess/docs/manual-field/openfield Manual.pdf"
 product Quell       quell       Quell       "quell/docs/manual/manual.pdf"
 cp "$ROOT/README.md" "$ROOT/LICENSE" "$OUT/"
 cp "$ROOT/INSTALL.txt" "$OUT/" 2>/dev/null || true

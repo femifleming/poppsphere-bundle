@@ -81,7 +81,7 @@
 <section class="page cover">
   <div class="tri2"></div><div class="tri"></div>
   <div class="word mark"><span class="o">open</span><span class="p">process</span></div><br>
-  <span class="sub">manual &nbsp;·&nbsp; version 1.2</span>
+  <span class="sub">manual &nbsp;·&nbsp; version 1.3</span>
   <img class="shot" src="img/guide.png" alt="">
   <div class="meta"><span>vst3 · vst2 · au · lv2 · standalone · macos · windows · linux</span><span>november 2026</span></div>
 </section>
@@ -100,11 +100,12 @@
     <li><span>8</span>logical operators</li>
     <li><span>9</span>snapshots</li>
     <li><span>10</span>timeline</li>
-    <li><span>11</span>sounds</li>
-    <li><span>12</span>render, capture, tools</li>
-    <li><span>13</span>help and demo</li>
-    <li><span>14</span>midi and parameters</li>
-    <li><span>15</span>reference</li>
+    <li><span>11</span>glides</li>
+    <li><span>12</span>sounds</li>
+    <li><span>13</span>render, capture, tools</li>
+    <li><span>14</span>help and demo</li>
+    <li><span>15</span>midi and parameters</li>
+    <li><span>16</span>reference</li>
   </ol>
 
   <h1 style="margin-top:9mm"><span class="n">1</span>about openprocess</h1>
@@ -133,7 +134,7 @@
 <!-- ========== install + screen ========== -->
 <section class="page">
   <h1><span class="n">2</span>installing and starting</h1>
-  <p>openprocess comes in the <b>poppsphere bundle</b> (with opensphere and Quell): one download per system from
+  <p>openprocess comes in the <b>poppsphere bundle</b> (with openfield and Quell): one download per system from
   the releases page of <code>github.com/femifleming/poppsphere-bundle</code>. On a Mac, Homebrew does it in one line:
   <code>brew install --cask femifleming/tap/openprocess</code>.</p>
   <table>
@@ -345,7 +346,7 @@
         <li><b>drag it away</b> (up or down, off the bar) to delete it</li>
       </ul>
       <p>Segments may overlap. Where they do, both play together. Each segment keeps its own copy of the snapshot,
-      so deleting the reel does not change it. Segments fade in and out over 30 ms at their edges. There is room for
+      so deleting the reel does not change it. Segments fade in and out over 30 ms (unless they glide, chapter 11) at their edges. There is room for
       <b>256 segments</b>.</p>
       <h2>wheel</h2>
       <p>The red crescent to the left sets the <b>length of the composition, from 1 to 30 minutes</b>. Drag up or right
@@ -379,9 +380,49 @@
   <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>8</span></div>
 </section>
 
+<!-- ========== glides ========== -->
+<section class="page">
+  <h1><span class="n">11</span>glides</h1>
+  <img class="full" src="img/glide.png" alt="" style="margin-bottom:1mm">
+  <p style="margin:0 0 4mm;font-size:8pt;color:#5a5b66">a yellow scene, then a violet one gliding out of it; the white slope is the glide</p>
+  <div class="cols">
+    <div>
+      <p class="lead">Segments can <b>cut</b> from one scene to the next, as in the original, or <b>glide</b>: the new scene
+      grows smoothly out of the one before it.</p>
+      <ul>
+        <li><b>drag a segment's left end</b> to the right: the glide gets longer (up to the whole segment). A white slope and
+        a colour ramp from the scene before show it; the small white triangle at its end is a handle too</li>
+        <li><b>double-click a segment</b>: glide over half of it, or back to a cut</li>
+        <li><b>cmd-drag</b> (ctrl on Windows / Linux) anywhere on a segment does the same as its left end</li>
+      </ul>
+      <p>While you drag, the status line shows the glide in seconds. Glides are saved with the piece and copied with
+      alt-drag.</p>
+      <h2>what glides</h2>
+      <p>A sound that is in both scenes keeps playing - its loop is not restarted - and moves: where each sound sits (panorama and volume), the part of the sample it loops, and its freeze rails all slide from the old
+      values to the new ones on a smooth (eased) curve. Mute and solo fade rather than switch. The effect and the freeze
+      mode change half way.</p>
+      
+    </div>
+    <div>
+      <h2 style="margin-top:0">which sounds are the same</h2>
+      <p>First the very same sound of the play area (snapshots taken one after another from the same mix share their
+      sounds); then any sound of the same browser cell. Sounds that are only in the old scene <b>fade out</b> over the
+      glide, sounds that are only in the new one <b>fade in</b>.</p>
+      <h2>the scene before</h2>
+      <p>A segment glides from the segment that ends last before it starts (a gap of up to half a second is bridged).
+      If that segment runs on past the start of the gliding one, it is cut there: the glide takes it over. Each segment
+      hands on to one glide only.</p>
+      <p>A gliding segment with nothing before it <b>fades in</b> over the glide instead - a slow entry for the start of a piece.</p>
+      <div class="note">Glides chain: glide A into B and B into C, and a sound in all three scenes runs on unbroken through
+      the whole stretch, its loop never restarting.</div>
+    </div>
+  </div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>9</span></div>
+</section>
+
 <!-- ========== sounds ========== -->
 <section class="page">
-  <h1><span class="n">11</span>sounds</h1>
+  <h1><span class="n">12</span>sounds</h1>
   <h2 style="margin-top:0">the built-in bank</h2>
   <p>All 64 loops are made by openprocess itself when it starts. Each row is one family. The first three are the
   timbres Popp set as the rule for the <i>ovalprocess</i> CD: guitar, organ and feedback. All loops use the
@@ -415,12 +456,12 @@
   </ul>
   <div class="note">A session remembers where its files are, not the audio itself. If files are moved, those squares
   keep their previous sound, and a message names the file that could not be read.</div>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>9</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>10</span></div>
 </section>
 
 <!-- ========== tools, help ========== -->
 <section class="page">
-  <h1><span class="n">12</span>render, capture, tools</h1>
+  <h1><span class="n">13</span>render, capture, tools</h1>
   <div class="side">
     <img src="img/tools.png" style="width:36mm" alt="">
     <div>
@@ -446,7 +487,7 @@
   is <code>~/Music/openprocess</code> (your Music folder on Windows and Linux too). Rendering is faster than real time;
   the message in the corner counts up the percent.</p>
 
-  <h1 style="margin-top:3mm"><span class="n">13</span>help and demo</h1>
+  <h1 style="margin-top:3mm"><span class="n">14</span>help and demo</h1>
   <div class="side">
   <img src="img/help.png" style="width:72mm" alt="">
   <div>
@@ -463,12 +504,12 @@
   applies effects, uses presets and operators, takes snapshots, arranges and plays them. <b>Any click ends the demo</b>
   and puts back exactly what you had. As in the installation, the standalone app starts the demo by itself after three
   minutes without input when the play area is empty.</p>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>10</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>11</span></div>
 </section>
 
 <!-- ========== midi + reference ========== -->
 <section class="page">
-  <h1><span class="n">14</span>midi and parameters</h1>
+  <h1><span class="n">15</span>midi and parameters</h1>
   <div class="cols">
     <div>
       <table>
@@ -494,7 +535,7 @@
     </div>
   </div>
 
-  <h1 style="margin-top:6mm"><span class="n">15</span>reference</h1>
+  <h1 style="margin-top:6mm"><span class="n">16</span>reference</h1>
   <table>
     <tr><th>item</th><th>value</th></tr>
     <tr><td>browser</td><td>64 loops (8 rows × 8 columns), 0.5 – 9 s each</td></tr>
@@ -515,7 +556,7 @@
   Ars Electronica archive · Oval, "Ovalprocess", <i>Leonardo</i> 35/5, 2002 · Sam Inglis, "Markus Popp: Music As Software",
   <i>Sound On Sound</i>, October 2002 · Marc Weidenbaum, interview with Markus Popp, Disquiet / Pulse!, 1996.
   openprocess is an independent homage. It is not made, endorsed or distributed by Markus Popp or Oval.</p>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>11</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>12</span></div>
 </section>
 
 </body>

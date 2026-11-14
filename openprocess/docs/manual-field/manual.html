@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>opensphere manual</title>
+<title>openfield manual</title>
 <style>
   @page { size: A4; margin: 0; }
   :root {
-    --blue: #3478d4; --blue-top: #3c88e2; --blue-bottom: #2c5fc0;
+    --blue: #2f9a52; --blue-top: #3aae5e; --blue-bottom: #237a40;
     --tag: #c8c9d1; --ink: #1e1e1e; --red: #d42a24; --mustard: #c4a232;
     --orange: #e08a1e; --yellow: #f2d41f; --grey: #5a5b66;
   }
@@ -34,7 +34,7 @@
   .cover .tri { position: absolute; right: 18mm; top: 26mm; width: 0; height: 0;
     border-top: 14mm solid transparent; border-bottom: 14mm solid transparent; border-left: 24mm solid var(--red); }
   .cover .tri2 { position: absolute; right: 12mm; top: 32mm; width: 0; height: 0; opacity: .6;
-    border-top: 14mm solid transparent; border-bottom: 14mm solid transparent; border-left: 24mm solid #a8dcff; }
+    border-top: 14mm solid transparent; border-bottom: 14mm solid transparent; border-left: 24mm solid #b4f5c8; }
 
   h1, h2 { font-weight: bold; letter-spacing: .1em; text-transform: lowercase; margin: 0; }
   h1 { background: var(--tag); font-size: 13pt; padding: 1.6mm 4mm; margin: 0 0 5mm; position: relative; }
@@ -49,7 +49,7 @@
   b.k, .k { font-weight: bold; }
   .tag { display: inline-block; background: var(--tag); font-weight: bold; letter-spacing: .06em; padding: 0 2mm; font-size: 8.5pt; }
   .tag.o { background: var(--orange); }
-  code { font-family: Menlo, monospace; font-size: 8.5pt; background: #eef0f6; padding: 0 1mm; }
+  code { font-family: Menlo, monospace; font-size: 8.5pt; background: #eef6f0; padding: 0 1mm; }
   table { border-collapse: collapse; width: 100%; margin: 1mm 0 4mm; font-size: 8.8pt; }
   th { text-align: left; background: var(--tag); padding: 1.2mm 2mm; letter-spacing: .06em; text-transform: lowercase; }
   td { padding: 1.1mm 2mm; border-bottom: 1px solid #d6d7df; vertical-align: top; }
@@ -85,8 +85,8 @@
 <!-- ========== cover ========== -->
 <section class="page cover">
   <div class="tri2"></div><div class="tri"></div>
-  <div class="word mark"><span class="o">open</span><span class="p">sphere</span></div><br>
-  <span class="sub">manual &nbsp;·&nbsp; version 1.2</span><br>
+  <div class="word mark"><span class="o">open</span><span class="p">field</span></div><br>
+  <span class="sub">manual &nbsp;·&nbsp; version 1.3</span><br>
   <span class="sub" style="margin-top:2mm">an ambisonics encoder</span>
   <img class="shot" src="img/guide.png" alt="">
   <div class="meta"><span>vst3 · vst2 · au · lv2 · standalone · macos · windows · linux</span><span>november 2026</span></div>
@@ -96,7 +96,7 @@
 <section class="page">
   <h1><span class="n">0</span>contents</h1>
   <ol class="toc">
-    <li><span>1</span>about opensphere</li>
+    <li><span>1</span>about openfield</li>
     <li><span>2</span>installing and setting up</li>
     <li><span>3</span>the screen</li>
     <li><span>4</span>the space</li>
@@ -111,23 +111,24 @@
     <li><span>13</span>presets and logical operators</li>
     <li><span>14</span>snapshots</li>
     <li><span>15</span>timeline</li>
-    <li><span>16</span>render to file</li>
-    <li><span>17</span>sounds and tools</li>
-    <li><span>18</span>help and demo</li>
-    <li><span>19</span>midi and parameters</li>
-    <li><span>20</span>reference</li>
+    <li><span>16</span>glides</li>
+    <li><span>17</span>render to file</li>
+    <li><span>18</span>sounds and tools</li>
+    <li><span>19</span>help and demo</li>
+    <li><span>20</span>midi and parameters</li>
+    <li><span>21</span>reference</li>
   </ol>
 
-  <h1 style="margin-top:6mm"><span class="n">1</span>about opensphere</h1>
-  <p class="lead">opensphere is a loop workspace that places its sounds in a sphere around you. You drag sounds into
+  <h1 style="margin-top:6mm"><span class="n">1</span>about openfield</h1>
+  <p class="lead">openfield is a loop workspace that places its sounds in a sphere around you. You drag sounds into
   a window, they loop, and you keep moving and changing them while they play. The output is Ambisonics, so the
   result can be decoded to any speaker ring or dome, or to headphones.</p>
   <p>It is the twin of <b>openprocess</b>, a loop workspace modelled on <b>ovalprocess</b> (2000) by Markus Popp, who
-  records as Oval. Both are built from the same source code. Everything openprocess does, opensphere does the same
+  records as Oval. Both are built from the same source code. Everything openprocess does, openfield does the same
   way: the browser with 64 loops, effects, presets, logical operators, snapshots, the timeline, your own sounds,
   rendering, MIDI. What changes is the play area and the output.</p>
   <table>
-    <tr><th></th><th>openprocess</th><th>opensphere</th></tr>
+    <tr><th></th><th>openprocess</th><th>openfield</th></tr>
     <tr><td>play area left ↔ right</td><td>stereo panorama</td><td>direction, once round you</td></tr>
     <tr><td>play area top ↔ bottom</td><td>loud ↔ soft</td><td>height, overhead ↔ 45° below</td></tr>
     <tr><td>level</td><td>by height in the play area</td><td>by distance (the globe)</td></tr>
@@ -140,43 +141,43 @@
   they share two speakers and blur together. Spread round a listener, each loop keeps its own place: you can hear
   which fragment is where, follow one while the others go on, and turn your head to bring another forward. A loop
   that orbits or rises slowly changes the piece without any change to the sound itself.</p>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>2</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>2</span></div>
 </section>
 
 <!-- ========== install ========== -->
 <section class="page">
   <h1><span class="n">2</span>installing and setting up</h1>
-  <p>opensphere comes in the <b>poppsphere bundle</b> (with openprocess and Quell): one download per system from
+  <p>openfield comes in the <b>poppsphere bundle</b> (with openprocess and Quell): one download per system from
   the releases page of <code>github.com/femifleming/poppsphere-bundle</code>. On a Mac, Homebrew does it in one line:
-  <code>brew install --cask femifleming/tap/opensphere</code>.</p>
+  <code>brew install --cask femifleming/tap/openfield</code>.</p>
   <table>
     <tr><th>system</th><th>put the files here</th></tr>
-    <tr><td>macOS</td><td><code>opensphere.vst3</code> → <code>~/Library/Audio/Plug-Ins/VST3</code>,
-      <code>opensphere.component</code> → <code>…/Components</code>, <code>opensphere.vst</code> → <code>…/VST</code>,
-      <code>opensphere.app</code> → <code>/Applications</code>. Universal: Apple silicon and Intel.</td></tr>
-    <tr><td>Windows</td><td><code>opensphere.vst3</code> → <code>C:\Program Files\Common Files\VST3</code>,
-      <code>opensphere.dll</code> (VST2) → your VST folder; <code>opensphere.exe</code> runs on its own.</td></tr>
-    <tr><td>Linux</td><td><code>opensphere.vst3</code> → <code>~/.vst3</code>, <code>opensphere.lv2</code> → <code>~/.lv2</code>,
-      <code>opensphere.so</code> (VST2) → <code>~/.vst</code>; <code>opensphere</code> runs on its own (ALSA or JACK).</td></tr>
+    <tr><td>macOS</td><td><code>openfield.vst3</code> → <code>~/Library/Audio/Plug-Ins/VST3</code>,
+      <code>openfield.component</code> → <code>…/Components</code>, <code>openfield.vst</code> → <code>…/VST</code>,
+      <code>openfield.app</code> → <code>/Applications</code>. Universal: Apple silicon and Intel.</td></tr>
+    <tr><td>Windows</td><td><code>openfield.vst3</code> → <code>C:\Program Files\Common Files\VST3</code>,
+      <code>openfield.dll</code> (VST2) → your VST folder; <code>openfield.exe</code> runs on its own.</td></tr>
+    <tr><td>Linux</td><td><code>openfield.vst3</code> → <code>~/.vst3</code>, <code>openfield.lv2</code> → <code>~/.lv2</code>,
+      <code>openfield.so</code> (VST2) → <code>~/.vst</code>; <code>openfield</code> runs on its own (ALSA or JACK).</td></tr>
   </table>
   <p class="small">The macOS builds are signed ad hoc, not notarised. The Homebrew cask clears the quarantine flag; if you
   install by hand, right-click the app → Open the first time.</p>
 
   <h2>in a daw</h2>
-  <p>opensphere needs a track with enough channels for the order you want: <b>4</b> for 1st order, <b>16</b> for 3rd,
+  <p>openfield needs a track with enough channels for the order you want: <b>4</b> for 1st order, <b>16</b> for 3rd,
   <b>36</b> for 5th, <b>64</b> for 7th (chapter 10). After it on the same track goes an Ambisonics <b>decoder</b>, which
   turns the channels into speaker feeds or binaural stereo for headphones.</p>
   <ol>
     <li>Make a track and give it the channels. In <b>REAPER</b>: the track's <i>Routing</i> button → <i>Track channels</i>
     16 (or 36, 64). The master track needs only 2 if the decoder is binaural.</li>
-    <li>Insert opensphere (VST3, VST2 or LV2). It offers up to 64 outputs and uses as many as the track has.</li>
+    <li>Insert openfield (VST3, VST2 or LV2). It offers up to 64 outputs and uses as many as the track has.</li>
     <li>Insert a decoder after it, set to the same order and to <b>AmbiX (ACN / SN3D)</b>: for headphones
     IEM <i>BinauralDecoder</i> or SPARTA <i>AmbiBIN</i>; for speakers IEM <i>AllRADecoder</i> or SPARTA <i>AmbiDEC</i>.</li>
-    <li>Click a bracket on the left of opensphere. Something plays around you.</li>
+    <li>Click a bracket on the left of openfield. Something plays around you.</li>
   </ol>
-  <p>opensphere plays as soon as something is in the play area, whether or not the transport runs. It has nothing
+  <p>openfield plays as soon as something is in the play area, whether or not the transport runs. It has nothing
   to do with the song tempo. Hosts that pass audio into the track feed the live input (chapter 9).</p>
-  <div class="note"><b>Ableton Live and Logic</b> have no tracks wide enough for this. There opensphere sees a stereo
+  <div class="note"><b>Ableton Live and Logic</b> have no tracks wide enough for this. There openfield sees a stereo
   bus and plays a <b>stereo preview</b> (chapter 10). Build the piece with the preview and use <i>render to file</i>
   to write the full AmbiX file, which any Ambisonics player or decoder can then open. The <b>AU</b> version offers
   up to 3rd order (16 channels).</div>
@@ -186,7 +187,7 @@
   are full AmbiX files at the chosen order. It asks for microphone access the first time, for capture and the live
   input. Your work is saved when you quit and is back when you start again.</p>
   <p>The window can be resized from its lower right corner, from 600 to 1600 pixels wide. The proportions stay fixed.</p>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>3</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>3</span></div>
 </section>
 
 <!-- ========== the screen ========== -->
@@ -235,7 +236,7 @@
   motion carry its small icon after their bar, with their own speed beside it when it isn't ×1. The selected sound shows
   its name, its distance in metres and the red pointers of its loop. Messages such as "the play area is full" appear
   for a few seconds in a grey tag at the top left.</p>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>4</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>4</span></div>
 </section>
 
 <!-- ========== the space ========== -->
@@ -297,7 +298,7 @@
   </div>
   <p class="small" style="margin-top:2mm">Sounds in the play area are drawn thick and solid when they are near and thin and faint when they are
   far away. Everything else about them works as in openprocess: drag to move, click to select, drag out to throw away.</p>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>5</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>5</span></div>
 </section>
 
 <!-- ========== globe + meter ========== -->
@@ -350,7 +351,7 @@
       square. The meter includes the Master level.</p>
     </div>
   </div>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>6</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>6</span></div>
 </section>
 
 <!-- ========== distance ========== -->
@@ -401,7 +402,7 @@
       clock, so changing it never makes a sound jump.</td><td>×1.00</td></tr>
   </table>
 
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>7</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>7</span></div>
 </section>
 
 <!-- ========== motions ========== -->
@@ -437,7 +438,7 @@
     is at that moment. Dropping the icon on another sound gives that sound a fresh copy. Drag a moving sound to move its resting place.</li>
     <li>Motions and speeds are stored in snapshots; each timeline segment restarts them at its start (chapter 15), and a render starts them from the beginning.</li>
   </ul>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>8</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>8</span></div>
 </section>
 
 <!-- ========== output & order ========== -->
@@ -459,7 +460,7 @@
   <div class="side">
     <img src="img/order.png" style="width:50mm" alt="">
     <div>
-      <p>opensphere's output is <b>Ambisonics</b>: not speaker feeds but a description of the whole sound field, which
+      <p>openfield's output is <b>Ambisonics</b>: not speaker feeds but a description of the whole sound field, which
       a decoder turns into whatever you listen on. The format is <b>AmbiX</b>: channels in <b>ACN</b> order with
       <b>SN3D</b> normalisation, as used by the IEM and SPARTA plug-ins, YouTube and most players.</p>
       <p>The seven squares at the top right choose the <b>order</b>. Click one. The chosen order is yellow; the orders
@@ -484,19 +485,19 @@
       <h2 style="margin-top:0">which order</h2>
       <p>Higher orders place sounds more sharply but need more channels and more speakers to pay off.
       <b>3rd order</b> is a good default for headphones and small rings; 5th to 7th suit large domes.</p>
-      <p>If the track has fewer channels than the chosen order needs, opensphere sends the highest order that fits,
+      <p>If the track has fewer channels than the chosen order needs, openfield sends the highest order that fits,
       and the label shows it: with 16 channels and 5th order chosen, 3rd order goes out.</p>
       <h2>decoding</h2>
-  <p>Put the decoder directly after opensphere on the same track. Set it to the same order and to ACN / SN3D: binaural for headphones,
+  <p>Put the decoder directly after openfield on the same track. Set it to the same order and to ACN / SN3D: binaural for headphones,
   AllRAD or similar for speakers. A head-tracking rotator such as IEM <i>SceneRotator</i> goes between the two.</p>
 
     </div>
   </div>
   <h2>stereo preview</h2>
-  <p>On a stereo track (Ableton Live, Logic) and in the standalone app, opensphere encodes at 1st
+  <p>On a stereo track (Ableton Live, Logic) and in the standalone app, openfield encodes at 1st
   order and folds it to left and right: <b>W + Y</b> and <b>W − Y</b>, two virtual microphones pointing left and right.
   You hear left and right, distance, width and motion, but not height, and front and back sound the same. Only the preview has a limiter: with many near sounds, keep <i>Master</i> down.</p>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>9</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>9</span></div>
 </section>
 
 <!-- ========== browser, effects, presets, operators ========== -->
@@ -546,7 +547,7 @@
     </div>
   </div>
 
-<div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>10</span></div>
+<div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>10</span></div>
 </section>
 
 <!-- ========== snapshots + timeline ========== -->
@@ -558,7 +559,7 @@
       <p>The eight brackets on the left are <b>presets</b>. A click fills the play area with 3 to 5 sounds, mostly from one
       browser row, never the same twice. Odd brackets use long parts of the samples (40–100 %), even brackets tiny
       fragments (3–25 %). <b>Shift-click</b> adds instead of replacing.</p>
-      <p>In opensphere, preset sounds are spread <b>all round you</b>, mostly a little above the horizon (from 15° below to
+      <p>In openfield, preset sounds are spread <b>all round you</b>, mostly a little above the horizon (from 15° below to
       40° above), between half a metre and about 10 m away. Each has a one-in-four chance of a fade and about a
       one-in-three chance of one of the twelve motions.</p>
       <p>The two <b>logical operators</b> above the play area change everything at once:</p>
@@ -586,7 +587,7 @@
     </div>
   </div>
 
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>11</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>11</span></div>
 </section>
 
 <section class="page">
@@ -602,7 +603,7 @@
       </ul>
       <p>Overlapping segments play together. Each keeps its own copy of the snapshot and <b>plays with its own settings</b>:
       its motions restart at the segment's start, at its motion speed, with its distance settings and scene turn. So motion
-      types, speeds, distance and scene turn can all be sequenced. Segments fade in and out over 30 ms.
+      types, speeds, distance and scene turn can all be sequenced. Segments fade in and out over 30 ms (unless they glide, chapter 16).
       There is room for <b>256 segments</b>.</p>
       <h2>wheel</h2>
       <p>The red crescent sets the <b>length of the composition, from 1 to 30 minutes</b>: drag up or right for longer. The scale is logarithmic. Normally segments keep their
@@ -625,19 +626,59 @@
 
     </div>
   </div>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>12</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>12</span></div>
+</section>
+
+<!-- ========== glides ========== -->
+<section class="page">
+  <h1><span class="n">16</span>glides</h1>
+  <img class="full" src="img/glide.png" alt="" style="margin-bottom:1mm">
+  <p class="small" style="margin:0 0 4mm">a yellow scene, then a violet one gliding out of it; the white slope is the glide</p>
+  <div class="cols">
+    <div>
+      <p class="lead">Segments can <b>cut</b> from one scene to the next, as in the original, or <b>glide</b>: the new scene
+      grows smoothly out of the one before it.</p>
+      <ul>
+        <li><b>drag a segment's left end</b> to the right: the glide gets longer (up to the whole segment). A white slope and
+        a colour ramp from the scene before show it; the small white triangle at its end is a handle too</li>
+        <li><b>double-click a segment</b>: glide over half of it, or back to a cut</li>
+        <li><b>cmd-drag</b> (ctrl on Windows / Linux) anywhere on a segment does the same as its left end</li>
+      </ul>
+      <p>While you drag, the status line shows the glide in seconds. Glides are saved with the piece and copied with
+      alt-drag.</p>
+      <h2>what glides</h2>
+      <p>A sound that is in both scenes keeps playing - its loop is not restarted - and moves: where each sound is (its direction, height and distance), the part of the sample it loops, its freeze rails, and the scene's own settings: rolloff, air, spread, blur, near, motion speed and the scene turn (the short way round) all slide from the old
+      values to the new ones on a smooth (eased) curve. Mute and solo fade rather than switch. The effect and the freeze
+      mode change half way.</p>
+      <p>Motions keep running through a glide: the sound travels from wherever its motion has taken it in the old scene to wherever its motion takes it in the new one, so an orbit can slow into a swing, or a boid fly home. A sound with the boids motion stays in the flock throughout.</p>
+    </div>
+    <div>
+      <h2 style="margin-top:0">which sounds are the same</h2>
+      <p>First the very same sound of the play area (snapshots taken one after another from the same mix share their
+      sounds); then any sound of the same browser cell. Sounds that are only in the old scene <b>fade out</b> over the
+      glide, sounds that are only in the new one <b>fade in</b>.</p>
+      <h2>the scene before</h2>
+      <p>A segment glides from the segment that ends last before it starts (a gap of up to half a second is bridged).
+      If that segment runs on past the start of the gliding one, it is cut there: the glide takes it over. Each segment
+      hands on to one glide only.</p>
+      <p>A gliding segment with nothing before it <b>fades in</b> over the glide instead - a slow entry for the start of a piece.</p>
+      <div class="note">Glides chain: glide A into B and B into C, and a sound in all three scenes runs on unbroken through
+      the whole stretch, its loop never restarting.</div>
+    </div>
+  </div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>13</span></div>
 </section>
 
 <!-- ========== render, sounds, tools ========== -->
 <section class="page">
-  <h1><span class="n">16</span>render to file</h1>
+  <h1><span class="n">17</span>render to file</h1>
   <p><i>render to file</i> (tools, ↓) writes the piece as an <b>AmbiX WAV</b>: 48 kHz, 24-bit, ACN / SN3D, with as many
   channels as the chosen order has, whatever the host or the app is playing. If the timeline has segments, the render
   runs from the play flag to the end of the composition; if not, it records the play area for the length set on the wheel.
   It is mixed at the current Master level.</p>
   <p>The file is written as it goes, so a long piece needs no more memory than a short one; the corner counts up the percent. The default place is
-  <code>~/Music/opensphere</code> (your Music folder on Windows and Linux too), with a name like
-  <code>opensphere 2026-11-13 21.04.10.wav</code>. Files over 4 GB are written as <b>RF64</b>, the WAV variant without
+  <code>~/Music/openfield</code> (your Music folder on Windows and Linux too), with a name like
+  <code>openfield 2026-11-13 21.04.10.wav</code>. Files over 4 GB are written as <b>RF64</b>, the WAV variant without
   that limit; most audio editors and Ambisonics players read it.</p>
   <div class="cols"><div><table style="margin-bottom:0">
     <tr><th class="num">order</th><th class="num">channels</th><th class="num">per minute</th><th class="num">30 minutes</th></tr>
@@ -649,7 +690,7 @@
   piece renders the same way each time. A 30-minute piece at 3rd order is just under 4 GB, an ordinary WAV;
   at 4th order and above it becomes RF64.</p></div></div>
 
-  <h1 style="margin-top:4mm"><span class="n">17</span>sounds and tools</h1>
+  <h1 style="margin-top:4mm"><span class="n">18</span>sounds and tools</h1>
   <div class="side">
     <img src="img/tools.png" style="width:26mm" alt="">
     <div>
@@ -658,14 +699,14 @@
         <tr><td>+ &nbsp;load sounds</td><td>choose files or folders to chop into the browser</td></tr>
         <tr><td>▦ &nbsp;built-in sounds</td><td>restore the synthesized bank</td></tr>
         <tr><td>⋀⋀ &nbsp;skip again</td><td>re-chop the selected square with a new pattern</td></tr>
-        <tr><td>● &nbsp;capture input</td><td>the last 8 s of input, silence trimmed, into the selected square; saved in <code>~/Music/opensphere/captures</code></td></tr>
+        <tr><td>● &nbsp;capture input</td><td>the last 8 s of input, silence trimmed, into the selected square; saved in <code>~/Music/openfield/captures</code></td></tr>
         <tr><td>↓ &nbsp;render to file</td><td>write an AmbiX WAV (chapter 16)</td></tr>
         <tr><td>× &nbsp;clear</td><td>empty the play area. <b>Shift-click</b>: clear everything (play area, reels and timeline) for a new piece</td></tr>
       </table>
     </div>
   </div>
   <h2 style="margin-top:1mm">the built-in bank</h2>
-  <p>All 64 loops are made by opensphere when it starts, the same bank as openprocess. Rows: <b>organ</b>, <b>guitar</b>,
+  <p>All 64 loops are made by openfield when it starts, the same bank as openprocess. Rows: <b>organ</b>, <b>guitar</b>,
   <b>feedback</b>, <b>skips</b>, <b>glass</b>, <b>low</b>, <b>noise</b>, <b>skipped</b>. All use the same pitches
   (D, E, F♯, A, B, C♯), so any can be combined. Loops are chopped like a skipping CD. <b>Columns run from clean on the left to heavily skipped on the right.</b>
   Loops are 0.5 to 9 seconds long and none is a multiple of another, so they drift against each other.</p>
@@ -675,12 +716,12 @@
     <li><b>Drop a single file onto one square</b> to replace only that square (first 30 seconds, unchopped).</li>
     <li>Formats: WAV, AIFF, FLAC, Ogg Vorbis, MP3, plus M4A/CAF on the Mac. A session remembers where its files are, not the audio.</li>
   </ul>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>13</span></div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>14</span></div>
 </section>
 
 <!-- ========== help, midi ========== -->
 <section class="page">
-  <h1><span class="n">18</span>help and demo</h1>
+  <h1><span class="n">19</span>help and demo</h1>
   <img class="full" src="img/helpbox2.png" alt="" style="width:78mm">
   <p>The three <b>?</b> marks next to the word mark open help without stopping the sound:</p>
   <ul>
@@ -695,7 +736,7 @@
   the demo</b> and puts back exactly what you had. The standalone app starts it by itself after three minutes without input
   when the play area is empty.</p>
 
-  <h1 style="margin-top:4mm"><span class="n">19</span>midi and parameters</h1>
+  <h1 style="margin-top:4mm"><span class="n">20</span>midi and parameters</h1>
   <div class="cols">
     <div>
       <table>
@@ -730,13 +771,13 @@
   <p>All can be automated. <b>Master</b> scales everything that goes out and into renders. <b>Ambisonic Order</b> is the
   same as the seven squares. The next six are the rails
   (chapter 7), the last two the scene turn on the globe (chapter 5). <b>Input Thru</b> is kept so that sessions match
-  openprocess, but opensphere ignores it: the input is heard only where you place it (chapter 9).</p>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>14</span></div>
+  openprocess, but openfield ignores it: the input is heard only where you place it (chapter 9).</p>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>15</span></div>
 </section>
 
 <!-- ========== reference ========== -->
 <section class="page">
-  <h1><span class="n">20</span>reference</h1>
+  <h1><span class="n">21</span>reference</h1>
   <table style="font-size:8pt;margin-bottom:2mm">
     <tr><th>item</th><th>value</th></tr>
     <tr><td>browser</td><td>64 loops (8 rows × 8 columns), 0.5 – 9 s each</td></tr>
@@ -760,19 +801,19 @@
     <tr><td>timeline segments</td><td>up to 256; new segments 20 s</td></tr>
     <tr><td>composition length</td><td>1 – 30 minutes; the timeline zooms to 10 s</td></tr>
     <tr><td>render</td><td>WAV, 48 kHz, 24-bit, AmbiX at the chosen order, streamed to disk, RF64 over 4 GB</td></tr>
-    <tr><td>user folder</td><td><code>~/Music/opensphere</code></td></tr>
+    <tr><td>user folder</td><td><code>~/Music/openfield</code></td></tr>
     <tr><td>saved with the session</td><td>play area (with distances, motions and speeds), snapshots, timeline, length, flag, how each square was made, parameters</td></tr>
-        <tr><td>plug-in code</td><td><code>OpSp</code> (openprocess and opensphere can be used side by side)</td></tr>
+        <tr><td>plug-in code</td><td><code>OpSp</code> (openprocess and openfield can be used side by side)</td></tr>
   </table>
-  <p class="small"><b>Decoders that read opensphere directly:</b> IEM Plug-in Suite (BinauralDecoder, AllRADecoder, SimpleDecoder, SceneRotator, up to 7th order) ·
+  <p class="small"><b>Decoders that read openfield directly:</b> IEM Plug-in Suite (BinauralDecoder, AllRADecoder, SimpleDecoder, SceneRotator, up to 7th order) ·
   SPARTA (AmbiBIN, AmbiDEC, Rotator) · any player or decoder that reads AmbiX (ACN / SN3D) files.</p>
   <h2>sources</h2>
   <p style="font-size:8.3pt">Ovalprocess sound installation, Dokumentation, Bedienungs- und Wartungshinweise, and Markus Popp,
   ovalprocess project text (Berlin, 7 April 2001), Ars Electronica archive · Markus Popp, ovalprocess US 2k lecture v0.2,
   Ars Electronica archive · Oval, "Ovalprocess", <i>Leonardo</i> 35/5, 2002 · Sam Inglis, "Markus Popp: Music As Software",
   <i>Sound On Sound</i>, October 2002 · Marc Weidenbaum, interview with Markus Popp, Disquiet / Pulse!, 1996.
-  opensphere is an independent homage. It is not made, endorsed or distributed by Markus Popp or Oval.</p>
-  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">sphere</span></span><span>15</span></div>
+  openfield is an independent homage. It is not made, endorsed or distributed by Markus Popp or Oval.</p>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>16</span></div>
 </section>
 
 </body>

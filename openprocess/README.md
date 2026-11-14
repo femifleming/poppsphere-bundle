@@ -20,6 +20,9 @@ change it while it plays.
 - **Logical operators** (top right): random loop lengths / random positions for everything in the play area.
 - **Snapshot** (yellow button): store the play area as a reel.
 - **Timeline**: drag reels onto it, move/scale segments (alt-drag copies, drag away deletes).
+- **Glides**: a segment can cut to its scene or glide into it — drag its left end (or double-click it) and the
+  scene before morphs smoothly into it: positions, loop parts, freeze rails (and in openfield distance, rails and
+  scene turn) slide over, shared sounds keep playing, the rest cross-fade.
   The wheel sets the composition length (1–30 min; shift-drag keeps segment times). Mouse wheel / pinch over the
   timeline zooms (down to 10 s across), sideways scroll moves along it, double-click shows everything; an overview
   strip appears when zoomed. The red flag plays/stops (drag it to set the start).
@@ -46,7 +49,9 @@ Parameters: Master, Input Thru.
 
 Manual: [docs/manual/openprocess Manual.pdf](docs/manual/openprocess%20Manual.pdf) (source `docs/manual/manual.html`, printed with headless Chrome).
 
-## opensphere
+## openfield
+
+(Called opensphere up to 1.2; renamed openfield in 1.3, with a green field.)
 
 The same workspace as an **Ambisonics encoder** (built from these sources with `OP_SPATIAL=1`; plug-in code `OpSp`).
 The play area becomes the sphere around you unrolled (left–right = once round you, middle = front, edges = behind;
@@ -54,7 +59,7 @@ bottom–top = 45° below to overhead), a plan view (top left) sets distance (ne
 narrow, dull), motions (orbit, swing, rise, drift) are dragged onto sounds like effects, and the red **in** square places
 the live input in the space. Output: ACN / SN3D (AmbiX), 1st–7th order (up to 64 channels; 3rd order as an AU); on a
 stereo bus or in the desktop app a W±Y stereo preview. Render writes a 24-bit AmbiX WAV at the chosen order.
-Manual: [docs/manual-sphere/opensphere Manual.pdf](docs/manual-sphere/opensphere%20Manual.pdf).
+Manual: [docs/manual-field/openfield Manual.pdf](docs/manual-field/openfield%20Manual.pdf).
 
 ## Build
 
@@ -62,9 +67,9 @@ From the top of the bundle (JUCE and the VST2 headers live there):
 
 ```
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build --target openprocess_All opensphere_All openprocessTest opensphereTest
+cmake --build build --target openprocess_All openfield_All openprocessTest openfieldTest
 build/openprocess/openprocessTest_artefacts/Release/openprocessTest [--render dir] [--screenshots dir]
-build/openprocess/opensphereTest_artefacts/Release/opensphereTest [--render dir] [--screenshots dir]
+build/openprocess/openfieldTest_artefacts/Release/openfieldTest [--render dir] [--screenshots dir]
 ```
 
 On macOS add `-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"` for a universal build. VST2 uses the FST headers in

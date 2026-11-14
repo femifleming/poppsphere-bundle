@@ -51,7 +51,7 @@ jobs:
           cmake -B build $EXTRA -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build --config Release --parallel 4 --target openprocess_All opensphere_All Quell_All openprocessTest opensphereTest QuellTest
+        run: cmake --build build --config Release --parallel 4 --target openprocess_All openfield_All Quell_All openprocessTest openfieldTest QuellTest
 
       - name: Test
         shell: bash
@@ -59,7 +59,7 @@ jobs:
           find_exe() { find build -type f \( -name "$1" -o -name "$1.exe" \) -path "*_artefacts*" | head -n 1; }
           RUN=""
           if [ "$RUNNER_OS" = "Linux" ]; then RUN="xvfb-run -a"; fi
-          for t in openprocessTest opensphereTest QuellTest; do
+          for t in openprocessTest openfieldTest QuellTest; do
             exe="$(find_exe $t)"; echo "== $t ($exe)"
             $RUN "$exe"
           done

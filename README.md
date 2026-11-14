@@ -1,4 +1,4 @@
-<p align="center"><img src="openprocess/Resources/icon/openprocess_1024.png" width="96" alt="openprocess icon">&nbsp;&nbsp;<img src="openprocess/Resources/icon/opensphere_1024.png" width="96" alt="opensphere icon">&nbsp;&nbsp;<img src="quell/Resources/icon/icon_1024.png" width="96" alt="quell icon"></p>
+<p align="center"><img src="openprocess/Resources/icon/openprocess_1024.png" width="96" alt="openprocess icon">&nbsp;&nbsp;<img src="openprocess/Resources/icon/openfield_1024.png" width="96" alt="openfield icon">&nbsp;&nbsp;<img src="quell/Resources/icon/icon_1024.png" width="96" alt="quell icon"></p>
 
 # poppsphere bundle
 
@@ -6,12 +6,12 @@ Three instruments and effects in one download, for **macOS, Windows and Linux**,
 
 | | what it is | formats |
 |---|---|---|
-| **[openprocess](openprocess/)** | a loop workspace after Oval's *ovalprocess*: an 8 × 8 browser of loops, a play area (left/right, loud/soft), effects, presets, snapshots and a timeline up to **30 minutes** that zooms | VST3 · VST2 · AU · LV2 · app |
-| **[opensphere](openprocess/README.md#opensphere)** | openprocess as an **Ambisonics encoder**: the play area is the sphere around you, a plan view sets distance, sounds orbit, swing, rise and drift, the live input can be placed in the space; ACN/SN3D 1st–7th order (up to 64 channels), AmbiX renders | VST3 · VST2 · AU · LV2 · app |
+| **[openprocess](openprocess/)** | a loop workspace after Oval's *ovalprocess*: an 8 × 8 browser of loops, a play area (left/right, loud/soft), effects, presets, snapshots and a timeline up to **30 minutes** that zooms, cutting or **gliding smoothly** between scenes | VST3 · VST2 · AU · LV2 · app |
+| **[openfield](openprocess/README.md#openfield)** | openprocess as an **Ambisonics encoder**: the play area is the sphere around you, a plan view sets distance, sounds orbit, swing, rise and drift, the live input can be placed in the space; ACN/SN3D 1st–7th order (up to 64 channels), AmbiX renders | VST3 · VST2 · AU · LV2 · app |
 | **[Quell](quell/)** | a dynamic resonance suppressor: hundreds of tiny compressors across the spectrum, cutting peaks only while they ring | VST3 · VST2 · AU · LV2 · app |
 
 Manuals: [openprocess](openprocess/docs/manual/openprocess%20Manual.pdf) ·
-[opensphere](openprocess/docs/manual-sphere/opensphere%20Manual.pdf) ·
+[openfield](openprocess/docs/manual-field/openfield%20Manual.pdf) ·
 [Quell](quell/docs/manual/manual.pdf) (also inside every download).
 
 ## Download and install
@@ -29,7 +29,7 @@ Each holds one folder per product, with its manual.
 On a Mac, Homebrew installs them in one line each (first `brew tap femifleming/tap`):
 
 ```
-brew install --cask openprocess opensphere quell
+brew install --cask openprocess openfield quell
 ```
 
 The macOS builds are universal (Apple silicon + Intel) and signed ad hoc, not notarised: the Homebrew casks clear the
@@ -42,10 +42,10 @@ quarantine flag; if you install by hand, right-click the app → Open the first 
 git clone --recursive https://github.com/femifleming/poppsphere-bundle
 cd poppsphere-bundle
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release        # macOS universal: add -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
-cmake --build build --target openprocess_All opensphere_All Quell_All
+cmake --build build --target openprocess_All openfield_All Quell_All
 ```
 
-Tests: `openprocessTest`, `opensphereTest`, `QuellTest` (same build). Linux needs the usual JUCE packages
+Tests: `openprocessTest`, `openfieldTest`, `QuellTest` (same build). Linux needs the usual JUCE packages
 (see `.github/workflows/build.yml`). Every push builds and tests all three on all three systems; a `v*` tag publishes
 a release.
 

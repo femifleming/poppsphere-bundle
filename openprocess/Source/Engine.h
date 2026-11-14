@@ -1,6 +1,6 @@
 // Plays the looping sounds. Every voice loops continuously; the timeline picks
 // which snapshot's voices sound at any moment. openprocess pans them left / right;
-// opensphere (OP_SPATIAL) encodes each one into Ambisonics, 1st to 7th order.
+// openfield (OP_SPATIAL) encodes each one into Ambisonics, 1st to 7th order.
 #pragma once
 #include "Ambi.h"
 #include "Bank.h"
@@ -21,7 +21,7 @@ struct VoiceSpec
     bool live = false;               // plays the live input instead of a sound
     float s = 0, e = 1;
     float gain = 1, pan = 0.5f;
-    float az = 0, el = 0, dist = 0.3f;   // opensphere
+    float az = 0, el = 0, dist = 0.3f;   // openfield
     float air = 0.5f, spread = 0.5f, blur = 0.0f, nearR = 0.12f;   // its distance settings (its segment's, on the timeline)
     int effect = fx::None;
     float fzSlide = 0.3f, fzDenoise = 0.0f, fzEvery = 0.0f, fzScan = 0.6f;
@@ -45,7 +45,7 @@ public:
         const SpaceParams* space = nullptr;
     };
 
-    // opensphere's spatial meter: energy by direction, published every block
+    // openfield's spatial meter: energy by direction, published every block
     static constexpr int kAzBins = 28, kElBins = 10;
     std::array<std::atomic<float>, kAzBins> meterAz {};
     std::array<std::atomic<float>, kElBins> meterEl {};
@@ -65,7 +65,7 @@ public:
     // (clock: the motion clock; each sound's motion runs from when it was put on)
     static int buildMix (const Model&, const CellArray&, double clock, VoiceSpec* out, int max, const SpaceParams& = {});
     static int buildTimeline (const Model&, const CellArray&, double tlSeconds, VoiceSpec* out, int max, const SpaceParams& = {});
-    static int timelineVoiceId (int segId, int itemIndex) { return 1000000 + segId * 256 + itemIndex; }
+    static int timelineVoiceId (int segId, int itemIndex) { return Model::voiceId (segId, itemIndex); }
     // the boids: gather this moment's birds and move the flock on by dt seconds
     static void feedFlock (Flock&, const Model&, bool timeline, double t, float dt, const SpaceParams&);
     static VoiceSpec specFor (const Item&, const CellArray&, double tau, const SpaceParams&);

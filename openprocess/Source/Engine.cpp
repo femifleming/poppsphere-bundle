@@ -184,7 +184,7 @@ void Engine::render (Slot& sl, int si, const Output& out, int off, int n, const 
         return;
     }
 
-    // 2b. opensphere: air (far sounds lose their top), then encode both channels, spread by distance
+    // 2b. openfield: air (far sounds lose their top), then encode both channels, spread by distance
     SpaceParams sp;
     sp.air = sl.air; sp.spread = sl.spread; sp.blur = sl.blur; sp.nearR = sl.nearR;
     const float d = juce::jlimit (0.0f, 1.0f, sl.dist);
@@ -288,25 +288,68 @@ VoiceSpec Engine::specFor (const Item& i, const CellArray& cells, double tau, co
     return v;
 }
 
+namespace
+{
+inline float lerp (float a, float b, float w) { return a + (b - a) * w; }
+inline float lerpWrap (float a, float b, float w, float period)   // the short way round
+{
+    float d = std::fmod (b - a, period);
+    if (d > 0.5f * period) d -= period;
+    if (d < -0.5f * period) d += period;
+    return a + d * w;
+}
+
+// a sound half way through a glide between two scenes
+VoiceSpec blend (const VoiceSpec& a, const VoiceSpec& b, float w)
+{
+    VoiceSpec v = w < 0.5f ? a : b;   // effect and freeze mode change half way
+    v.gain = lerp (a.gain, b.gain, w);
+    v.pan = lerp (a.pan, b.pan, w);
+    v.s = lerp (a.s, b.s, w);
+    v.e = juce::jmax (v.s, lerp (a.e, b.e, w));
+    v.az = lerpWrap (a.az, b.az, w, 2.0f * juce::MathConstants<float>::pi);
+    v.el = lerp (a.el, b.el, w);
+    v.dist = lerp (a.dist, b.dist, w);
+    v.air = lerp (a.air, b.air, w); v.spread = lerp (a.spread, b.spread, w);
+    v.blur = lerp (a.blur, b.blur, w); v.nearR = lerp (a.nearR, b.nearR, w);
+    v.fzSlide = lerp (a.fzSlide, b.fzSlide, w); v.fzDenoise = lerp (a.fzDenoise, b.fzDenoise, w);
+    v.fzEvery = lerp (a.fzEvery, b.fzEvery, w); v.fzScan = lerp (a.fzScan, b.fzScan, w);
+    v.fzGen = a.fzGen;
+    return v;
+}
+
+SpaceParams segSpace (const Segment* s, const SpaceParams& sp)
+{
+    SpaceParams r = (s != nullptr && s->snap.hasSpace) ? s->snap.space : sp;
+    r.flock = sp.flock;
+    return r;
+}
+} // namespace
+
 void Engine::feedFlock (Flock& f, const Model& m, bool timeline, double t, float dt, const SpaceParams& sp)
 {
     f.begin();
-    auto add = [&] (const Item& i, int id) {
-        if (i.motion == motion::Boids) f.add (id, i.x, i.y, i.d, i.mrate * (0.85f + 0.3f * i.mseed));
-    };
     float speed = sp.mspeed;
     if (timeline)
     {
         const double L = m.minutes * 60.0;
-        for (auto& seg : m.segs)
-            if (t >= seg.start * L && t < (seg.start + seg.len) * L)
+        m.forEachTimelineVoice (t, [&] (const TlVoice& v) {
+            const Item* it = v.b != nullptr ? v.b : v.a;
+            if (it->motion != motion::Boids) return;
+            float x = it->x, y = it->y, d = it->d;
+            if (v.a != nullptr && v.b != nullptr)
             {
-                for (size_t k = 0; k < seg.snap.items.size(); ++k) add (seg.snap.items[k], timelineVoiceId (seg.id, (int) k));
-                if (seg.snap.hasSpace) speed = seg.snap.space.mspeed;
+                x = lerpWrap (v.a->x, v.b->x, v.w, 1.0f); x -= std::floor (x);
+                y = lerp (v.a->y, v.b->y, v.w); d = lerp (v.a->d, v.b->d, v.w);
             }
+            f.add (v.vid, x, y, d, it->mrate * (0.85f + 0.3f * it->mseed));
+        });
+        for (auto& seg : m.segs)
+            if (seg.snap.hasSpace && t >= seg.start * L && t < (seg.handedOn ? seg.end : seg.start + seg.len) * L) speed = seg.snap.space.mspeed;
     }
     else
-        for (auto& i : m.mix) add (i, i.id);
+        for (auto& i : m.mix)
+            if (i.motion == motion::Boids) f.add (i.id, i.x, i.y, i.d, i.mrate * (0.85f + 0.3f * i.mseed));
     f.step (dt * speed);
 }
 
@@ -330,26 +373,26 @@ int Engine::buildTimeline (const Model& m, const CellArray& cells, double t, Voi
 {
     const double L = m.minutes * 60.0;
     int n = 0;
-    for (auto& seg : m.segs)
-    {
-        const double t0 = seg.start * L, t1 = juce::jmin (L, (double) (seg.start + seg.len) * L);
-        if (t < t0 || t >= t1) continue;
-        const float edge = (float) juce::jmin (1.0, (t - t0) / 0.03, (t1 - t) / 0.03);
-        bool anySolo = false;
-        for (auto& i : seg.snap.items) anySolo |= i.effect == fx::Solo;
-        // a snapshot taken in opensphere brings its own motion speed, distance settings and scene turn
-        SpaceParams ssp = seg.snap.hasSpace ? seg.snap.space : sp;
-        ssp.flock = sp.flock;
-        for (size_t k = 0; k < seg.snap.items.size() && n < max; ++k)
-        {
-            Item i = seg.snap.items[k];
-            i.id = timelineVoiceId (seg.id, (int) k);
-            VoiceSpec v = specFor (i, cells, (t - t0) * ssp.mspeed, ssp);   // motions start with the segment
-            if (v.snd == nullptr && ! v.live) continue;
-            v.gain *= edge;
-            if (i.effect == fx::Mute || (anySolo && i.effect != fx::Solo)) v.gain = 0;
-            out[n++] = v;
-        }
-    }
+    // one side of a sound: where it is in its own scene (a snapshot taken in openfield brings its own
+    // motion speed, distance settings and scene turn; motions start with the segment)
+    auto side = [&] (const Item* it, const Segment* seg, int vid) {
+        const SpaceParams ssp = segSpace (seg, sp);
+        Item i = *it;
+        i.id = vid;
+        VoiceSpec v = specFor (i, cells, (t - seg->start * L) * ssp.mspeed, ssp);
+        if (i.effect == fx::Mute || (seg->anySolo && i.effect != fx::Solo)) v.gain = 0;
+        return v;
+    };
+    m.forEachTimelineVoice (t, [&] (const TlVoice& tv) {
+        if (n >= max) return;
+        VoiceSpec v;
+        if (tv.a != nullptr && tv.b != nullptr) v = blend (side (tv.a, tv.segA, tv.vid), side (tv.b, tv.segB, tv.vid), tv.w);
+        else if (tv.b != nullptr) { v = side (tv.b, tv.segB, tv.vid); v.gain *= tv.w; }        // fades in
+        else { v = side (tv.a, tv.segA, tv.vid); v.gain *= 1.0f - tv.w; }                        // fades out
+        if (v.snd == nullptr && ! v.live) return;
+        v.id = tv.vid;
+        v.gain *= tv.edge;
+        out[n++] = v;
+    });
     return n;
 }

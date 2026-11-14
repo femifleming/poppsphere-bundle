@@ -26,7 +26,8 @@ def triangle(d, W, x, y, h, red, tail):
     d.polygon([(x - 80 * u, y - h * 0.5), (x + h * 0.85, y), (x - 80 * u, y + h * 0.5)], fill=red)
 
 def openprocess(W, sphere=False):
-    img, m = tile(W, grad(W, (64, 140, 230), (40, 92, 196)))
+    # openprocess: the blue field; openfield: green
+    img, m = tile(W, grad(W, (62, 176, 96), (36, 124, 64)) if sphere else grad(W, (64, 140, 230), (40, 92, 196)))
     d = ImageDraw.Draw(img)
     u = W / 1024
     # dotted white mix window
@@ -39,7 +40,7 @@ def openprocess(W, sphere=False):
     while yy < y1 - 4 * u:
         xx = x0 + step
         while xx < x1 - 4 * u:
-            d.ellipse([xx - 2.4 * u, yy - 2.4 * u, xx + 2.4 * u, yy + 2.4 * u], fill=(170, 176, 200, 255))
+            d.ellipse([xx - 2.4 * u, yy - 2.4 * u, xx + 2.4 * u, yy + 2.4 * u], fill=(170, 190, 176, 255) if sphere else (170, 176, 200, 255))
             xx += step
         yy += step
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
@@ -54,7 +55,7 @@ def openprocess(W, sphere=False):
         d.rectangle([cx - a + b, cy - a + b, cx + a - b, cy + a - b], fill=(255, 255, 255, 255))
         c = 54 * u
         d.rectangle([cx - c, cy - c, cx + c, cy + c], fill=(40, 70, 170, 255))
-    triangle(d, W, 790 * u, 510 * u, 230 * u, (214, 40, 36, 255), (170, 214, 250, 255))
+    triangle(d, W, 790 * u, 510 * u, 230 * u, (214, 40, 36, 255), (176, 236, 190, 255) if sphere else (170, 214, 250, 255))
     return img
 
 def quell(W):
@@ -72,7 +73,7 @@ def quell(W):
     triangle(d, W, 790 * u, 500 * u, 230 * u, (120, 180, 235, 255), (230, 170, 160, 255))
     return img
 
-ICONS = {"openprocess": lambda W: openprocess(W), "opensphere": lambda W: openprocess(W, True), "Quell": quell}
+ICONS = {"openprocess": lambda W: openprocess(W), "openfield": lambda W: openprocess(W, True), "Quell": quell}
 
 def icon(name, size=S):
     return ICONS[name](size * 4).resize((size, size), Image.LANCZOS)

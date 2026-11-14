@@ -7,7 +7,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 endif()
 
-project(openprocess VERSION 1.2.1 LANGUAGES C CXX)
+project(openprocess VERSION 1.3.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -42,7 +42,7 @@ set(OP_DEFS JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0 JUCE
             JUCE_USE_FLAC=1 JUCE_USE_OGGVORBIS=1 JUCE_USE_MP3AUDIOFORMAT=1
             JUCE_STANDALONE_FILTER_WINDOW_USE_KIOSK_MODE=0 _USE_MATH_DEFINES=1)
 
-# openprocess (stereo) and opensphere (the same workspace as an Ambisonics encoder) share the sources
+# openprocess (stereo) and openfield (the same workspace as an Ambisonics encoder) share the sources
 function(op_add_plugin target code name desc spatial au_type)
     juce_add_plugin(${target}
         VERSION ${PROJECT_VERSION}
@@ -86,5 +86,5 @@ endfunction()
 
 op_add_plugin(openprocess OpPr "openprocess"
     "Loop workspace after Oval's ovalprocess: browser, mix window, snapshots, timeline" 0 kAudioUnitType_MusicDevice)
-op_add_plugin(opensphere OpSp "opensphere"
+op_add_plugin(openfield OpSp "openfield"
     "openprocess as an Ambisonics encoder: loops and live input placed and moved around you, 1st-7th order" 1 kAudioUnitType_MusicDevice)
