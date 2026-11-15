@@ -85,6 +85,9 @@ bool QuellProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
     const auto in = layouts.getMainInputChannelSet(), out = layouts.getMainOutputChannelSet();
     if (in != out) return false;
     if (in != juce::AudioChannelSet::mono() && in != juce::AudioChannelSet::stereo()) return false;
+    // VST2 / AU / LV2 have no real bus negotiation: offering mono there lets a host (Ableton's VST2) fold a
+    // stereo track to one channel. Mono stays available in VST3, where the host chooses per bus.
+    if (wrapperType != wrapperType_VST3 && in != juce::AudioChannelSet::stereo()) return false;
     if (layouts.inputBuses.size() > 1)
     {
         const auto sc = layouts.getChannelSet (true, 1);

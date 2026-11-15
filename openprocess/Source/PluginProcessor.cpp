@@ -123,6 +123,8 @@ bool OpProcessor::isBusesLayoutSupported (const BusesLayout& l) const
     if (out != juce::AudioChannelSet::stereo()) return false;
    #endif
     const auto in = l.getMainInputChannelSet();
+    // outside VST3 a mono input would let the host feed only the left channel of a stereo track
+    if (wrapperType != wrapperType_VST3 && in == juce::AudioChannelSet::mono()) return false;
     return in.isDisabled() || in == juce::AudioChannelSet::mono() || in == juce::AudioChannelSet::stereo();
 }
 

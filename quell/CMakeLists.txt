@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 # macOS: one universal build for Apple silicon and Intel
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS")
-project(Quell VERSION 1.0.2 LANGUAGES C CXX)
+project(Quell VERSION 1.0.3 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(QUELL_COPY_AFTER_BUILD "Install into the user plug-in folders after building" OFF)
@@ -35,7 +35,7 @@ if(QUELL_BUILD_VST2)
 endif()
 
 juce_add_plugin(Quell
-    VERSION 1.0.2
+    VERSION 1.0.3
     COMPANY_NAME "FreakiePie"
     BUNDLE_ID "com.freakiepie.quell"
     PLUGIN_MANUFACTURER_CODE Frkp
