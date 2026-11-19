@@ -108,6 +108,11 @@ function(op_add_plugin target code name desc spatial synth)
             JucePlugin_VersionString="${PROJECT_VERSION}" JucePlugin_Build_Standalone=0 JUCE_MODAL_LOOPS_PERMITTED=1 OP_TEST_BUILD=1
             JucePlugin_IsSynth=1 JucePlugin_WantsMidiInput=1 JucePlugin_ProducesMidiOutput=0 JucePlugin_IsMidiEffect=0)
         target_link_libraries(${target}Test PRIVATE juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
+        # Windows gives the main thread 1 MB of stack (macOS / Linux: 8 MB); the test keeps whole processors
+        # as locals of main(), which outgrew it in 1.4.0 (0xC00000FD before the first line)
+        if(MSVC)
+            target_link_options(${target}Test PRIVATE /STACK:8388608)
+        endif()
     endif()
 endfunction()
 
