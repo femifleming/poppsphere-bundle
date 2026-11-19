@@ -47,10 +47,14 @@ const char* kDistIds[6] = { "rolloff", "air", "spread", "blur", "near", "mspeed"
 OpEditor::OpEditor (OpProcessor& p) : AudioProcessorEditor (p), proc (p)
 {
     setOpaque (true);
+    // the size it had in this session
+    const int w = proc.editorWidth() > 0 ? juce::jlimit (600, 1600, proc.editorWidth()) : W;
     setResizable (true, true);
     setResizeLimits (600, 432, 1600, 1152);
     if (auto* c = getConstrainer()) c->setFixedAspectRatio ((double) W / H);
-    setSize (W, H);
+    setSize (w, juce::roundToInt (w * (double) H / W));
+    sizeKept = true;
+    proc.setEditorWidth (getWidth());
     lastInput = juce::Time::getMillisecondCounter();
     timerCallback();
     startTimerHz (30);
@@ -278,11 +282,19 @@ std::vector<OpEditor::DrawItem> OpEditor::visibleItems() const
     return v;
 }
 
+// in a host the selected sound shows its number: "Sound 03 ..." are its parameters there
+juce::String OpEditor::slotLabel (const Item& i) const
+{
+    if (! proc.hasHostTransport() || i.slot < 0) return {};
+    return "sound " + juce::String (i.slot + 1).paddedLeft ('0', 2) + ":  ";
+}
+
 //== timer ======================================================================
 void OpEditor::timerCallback()
 {
     cur = proc.getModel();
     playing = proc.timelinePlaying();
+    hostRuns = proc.hostRunning();
     tlSeconds = proc.timelineSeconds();
     motionT = proc.motionTime();
     ambiOrder = proc.ambisonicOrder();
@@ -344,6 +356,7 @@ void OpEditor::timerCallback()
 void OpEditor::resized()
 {
     scale = (float) getWidth() / (float) W;
+    if (sizeKept) proc.setEditorWidth (getWidth());
     float ds = 2.0f;
     if (auto* d = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()) ds = (float) juce::jmax (1.0, d->scale);
     staticLayer = juce::Image (juce::Image::RGB, juce::jmax (1, (int) (getWidth() * ds)), juce::jmax (1, (int) (getHeight() * ds)), true);
@@ -964,7 +977,8 @@ void OpEditor::paint (juce::Graphics& g)
     }
 
     if (playing)
-        drawTag (g, { mixRect().getX() + 8, mixRect().getY() + 8, 330, 16 }, "playing the timeline - click the red flag to stop",
+        drawTag (g, { mixRect().getX() + 8, mixRect().getY() + 8, 330, 16 },
+                 hostRuns ? "the host is playing the timeline - stop it there" : "playing the timeline - click the red flag to stop",
                  juce::Justification::centredLeft, kTag, kInk);
 
     if (helpPage == 0 || demo) drawGuide (g);
@@ -1093,7 +1107,7 @@ void OpEditor::drawItems (juce::Graphics& g)
         {
             g.setColour (kInk);
             g.setFont (labelFont (10.0f));
-            g.drawText ((i.isLive() ? juce::String ("input") : proc.cellName (i.cell)) + "  " + juce::String (metres (i.d), 1) + " m",
+            g.drawText (slotLabel (i) + (i.isLive() ? juce::String ("input") : proc.cellName (i.cell)) + "  " + juce::String (metres (i.d), 1) + " m",
                         juce::Rectangle<float> (r.getCentreX() - 100, r.getY() - 22, 200, 12), juce::Justification::centred, false);
         }
         if (i.isLive()) continue;
@@ -1117,7 +1131,7 @@ void OpEditor::drawItems (juce::Graphics& g)
            #if ! OP_SPATIAL
             g.setColour (kInk);
             g.setFont (labelFont (10.0f));
-            g.drawText (proc.cellName (i.cell), juce::Rectangle<float> (r.getCentreX() - 100, r.getY() - 22, 200, 12),
+            g.drawText (slotLabel (i) + proc.cellName (i.cell), juce::Rectangle<float> (r.getCentreX() - 100, r.getY() - 22, 200, 12),
                         juce::Justification::centred, false);
            #endif
         }
@@ -1316,6 +1330,23 @@ void OpEditor::drawTimeline (juce::Graphics& g)
     g.setFont (labelFont (11.0f));
     g.drawText ((cur.minutes < 9.95f ? juce::String (cur.minutes, 1) : juce::String (juce::roundToInt (cur.minutes))) + " min.", juce::Rectangle<float> (c.x - 6, c.y - 8, 80, 16),
                 juce::Justification::centredLeft, false);
+
+    // in a host: flag | host - the timeline is started by hand, or runs with the host's transport
+    if (proc.hasHostTransport())
+    {
+        const auto hr = hostRect();
+        const bool follows = proc.followsHost();
+        g.setFont (labelFont (8.5f));
+        for (int k = 0; k < 2; ++k)
+        {
+            const Rect h = hr.withWidth (hr.getWidth() * 0.5f).translated (k * hr.getWidth() * 0.5f, 0);
+            const bool on = (k == 1) == follows;
+            g.setColour (on ? (k == 1 && hostRuns && (juce::Time::getMillisecondCounter() / 400) % 2 ? juce::Colours::white : kAccent) : kFrameDark);
+            g.fillRect (h.reduced (1, 0));
+            g.setColour (on ? kInk : juce::Colours::white);
+            g.drawText (k == 0 ? "flag" : "host", h, juce::Justification::centred, false);
+        }
+    }
 }
 
 void OpEditor::drawTimelineScale (juce::Graphics& g)
@@ -1502,6 +1533,8 @@ void OpEditor::drawHelp (juce::Graphics& g)
         "wheel: length of the piece, 1 - 30 min. (shift-drag: segments keep their times).",
         "mouse wheel / pinch on the timeline zooms, sideways scrolls, double-click: all.",
         "red flag: click to play / stop, drag to set the start. playing locks the rest.",
+        "in a host: flag | host (bottom left) - with 'host' the timeline runs with the",
+        "host's transport, at its position. every sound has parameters to automate.",
         "drop audio files or folders on the browser to chop them into 64 loops;",
         "one file dropped on one cell replaces only that cell.",
         "tools: load, built-in, skip again, capture, render, clear (shift-click: all).",
@@ -1532,6 +1565,8 @@ void OpEditor::drawHelp (juce::Graphics& g)
         "wheel: length of the piece, 1 - 30 min. (shift-drag: segments keep their times).",
         "mouse wheel / pinch on the timeline zooms, sideways scrolls, double-click: all.",
         "red flag: click to play / stop, drag to set the start. playing locks the rest.",
+        "in a host: flag | host (bottom left) - 'host' runs the timeline with the host's",
+        "transport, at its position. every sound has parameters to automate.",
         "output: Ambisonics, ACN / SN3D (AmbiX), 1st - 7th order (numbers top right).",
         "put a decoder / binaural plug-in after it; stereo tracks hear a preview.",
         "render (tools): writes an AmbiX WAV of the timeline at the chosen order.",
@@ -1557,7 +1592,7 @@ void OpEditor::drawHelp (juce::Graphics& g)
     const int n = helpPage == 1 ? (int) std::size (page1) : (int) std::size (page2);
    #endif
     for (int i = 0; i < n; ++i)
-        g.drawText (lines[i], juce::Rectangle<float> (r.getX() + 18, r.getY() + 36 + i * (n > 11 ? 25.0f : 28.0f), r.getWidth() - 30, 20),
+        g.drawText (lines[i], juce::Rectangle<float> (r.getX() + 18, r.getY() + 36 + i * (n > 13 ? 22.5f : n > 11 ? 25.0f : 28.0f), r.getWidth() - 30, 20),
                     juce::Justification::centredLeft, false);
     g.setColour (juce::Colour (0xff5a5b66));
     g.drawText ("click anywhere to close", juce::Rectangle<float> (r.getX() + 18, r.getBottom() - 26, r.getWidth() - 36, 18),
@@ -1658,9 +1693,18 @@ void OpEditor::mouseDown (const juce::MouseEvent& e)
     {
         drag = Drag::Flag; dragStartVal = cur.playStart; return;
     }
+    if (proc.hasHostTransport() && hostRect().expanded (2, 3).contains (p))
+    {
+        const bool on = p.x >= hostRect().getCentreX();
+        proc.setFollowsHost (on);
+        proc.setStatus (on ? "the timeline runs with the host's transport, at the host's position"
+                           : "the timeline is started and stopped with the red flag");
+        return;
+    }
 
     const bool editable = ! playing;
-    auto locked = [this] { proc.setStatus ("stop the timeline to change things"); };
+    auto locked = [this] { proc.setStatus (hostRuns ? "the host is playing the timeline: stop the host, or click 'flag'"
+                                                    : "stop the timeline to change things"); };
 
     if (wheelRect().contains (p))
     {
@@ -1764,7 +1808,12 @@ void OpEditor::mouseDown (const juce::MouseEvent& e)
     {
         if (! editable) { drag = Drag::GlobeTurn; dragYaw = viewYaw; dragPitch = viewPitch; return; }
         const int id = planItemAt (p);
-        if (id >= 0) { drag = Drag::Plan; dragIndex = id; selectedItem = id; selectedCell = -1; return; }
+        if (id >= 0)
+        {
+            drag = Drag::Plan; dragIndex = id; selectedItem = id; selectedCell = -1;
+            proc.slotGesture (id, { OpProcessor::fX, OpProcessor::fY, OpProcessor::fDist }, true);
+            return;
+        }
         // empty globe: drag turns the view; shift-drag turns the scene itself (what you hear)
         if (e.mods.isShiftDown())
         {
@@ -1820,6 +1869,7 @@ void OpEditor::mouseDown (const juce::MouseEvent& e)
                 drag = k == 0 ? Drag::LoopS : Drag::LoopE;
                 dragIndex = sel->id;
                 dragStrip = s;
+                proc.slotGesture (sel->id, { OpProcessor::fStart, OpProcessor::fLength }, true);
                 return;
             }
         }
@@ -1845,6 +1895,7 @@ void OpEditor::mouseDown (const juce::MouseEvent& e)
         selectedCell = -1;
         if (auto it = disp.find (id); it != disp.end()) grabOffset = it->second - p;
         else grabOffset = {};
+        proc.slotGesture (id, { OpProcessor::fX, OpProcessor::fY }, true);
         return;
     }
     if (mixRect().contains (p)) selectedItem = -1;
@@ -2204,6 +2255,8 @@ void OpEditor::mouseUp (const juce::MouseEvent& e)
        #endif
         default: break;
     }
+    // the drag of a sound is over for the host too
+    proc.slotGesture (-1, { OpProcessor::fX, OpProcessor::fY, OpProcessor::fStart, OpProcessor::fLength, OpProcessor::fDist }, false);
     drag = Drag::None;
     trail.clear();
     moved = false;

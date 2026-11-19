@@ -51,7 +51,7 @@ jobs:
           cmake -B build $EXTRA -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build --config Release --parallel 4 --target openprocess_All openfield_All Quell_All openprocessTest openfieldTest QuellTest
+        run: cmake --build build --config Release --parallel 4 --target openprocess_All openfield_All openprocess_fx_All openfield_fx_All Quell_All openprocessTest openfieldTest QuellTest
 
       - name: Test
         shell: bash

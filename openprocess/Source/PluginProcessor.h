@@ -4,8 +4,11 @@
 #include "Bank.h"
 #include "Engine.h"
 #include "Model.h"
+#include <initializer_list>
 
-class OpProcessor : public juce::AudioProcessor, private juce::Timer
+// One processor, four plug-ins: openprocess and openfield (OP_SPATIAL), each as an instrument and
+// as an effect ("... fx", JucePlugin_IsSynth 0) for hosts that keep the two apart.
+class OpProcessor : public juce::AudioProcessor, public juce::VST3ClientExtensions, private juce::Timer
 {
 public:
     OpProcessor();
@@ -29,6 +32,11 @@ public:
     void changeProgramName (int, const juce::String&) override {}
     void getStateInformation (juce::MemoryBlock&) override;
     void setStateInformation (const void*, int) override;
+    // VST3: an instrument's audio input is a side-chain (hosts route another track into it);
+    // the effect's input is the track it sits on
+    juce::VST3ClientExtensions* getVST3ClientExtensions() override { return this; }
+    bool getPluginHasMainInput() const override { return ! isInstrument(); }
+    static bool isInstrument();
 
     juce::AudioProcessorValueTreeState params;
 
@@ -37,11 +45,35 @@ public:
     void setModel (const Model&);
     template <class F> void edit (F&& f)
     {
-        const juce::SpinLock::ScopedLockType sl (lock);
-        f (model);
-        model.link();
+        SlotValues v;
+        {
+            const juce::SpinLock::ScopedLockType sl (lock);
+            f (model);
+            model.link();
+            v = slotValues (model);
+        }
+        pushSlots (v);   // the host's "Sound nn ..." parameters follow the play area
     }
-    bool timelinePlaying() const { return timelinePlayingFlag.load(); }
+    // the timeline is sounding now (started by the red flag / the Timeline Play parameter, or run by the host)
+    bool timelinePlaying() const { return playingNow.load(); }
+
+    //== the host ================================================================
+    // Every sound of the play area has a slot (1..24) with its own automatable parameters: where it
+    // is and which part of it loops. They go both ways: moving a sound moves the parameters, and
+    // the host's automation moves the sound.
+    static constexpr int kSlots = Model::kMaxItems;
+    enum SlotField { fX = 0, fY, fStart, fLength, fDist, kNumFields };
+    static juce::String slotParamId (int slot, int field);
+    // a drag of that sound begins / ends: a gesture on its parameters, so a host can record it
+    void slotGesture (int itemId, std::initializer_list<int> fields, bool begin);
+    // Follow Host: while the host's transport runs, the timeline plays at the host's position
+    bool followsHost() const;
+    void setFollowsHost (bool);
+    bool hostRunning() const { return hostDriving.load(); }   // the host is playing the timeline now
+    bool hasHostTransport() const { return ! isStandalone(); }
+    // the editor's size is kept with the session
+    int editorWidth() const { return uiW.load(); }
+    void setEditorWidth (int w) { uiW = w; }
     double timelineSeconds() const { return tlPos.load(); }
     double motionTime() const { return motionNow.load(); }      // the clock the motions run on
     int ambisonicOrder() const { return orderNow.load(); }      // 0 = stereo preview
@@ -80,11 +112,55 @@ public:
     void setStatus (const juce::String&);
 
     static juce::File userFolder();
+    static const char* productName() { return OP_SPATIAL ? "openfield" : "openprocess"; }   // the same for "... fx"
     bool isStandalone() const { return wrapperType == wrapperType_Standalone; }
 
 private:
     static BusesProperties buses();
     void timerCallback() override;
+
+    // parameters <-> play area
+    struct SlotValues { bool has[kSlots] = {}; float v[kSlots][kNumFields] = {}; };
+    static SlotValues slotValues (const Model&);
+    void pushSlots (const SlotValues&);
+    void applySlotParams (Model&);            // host -> play area; call with the lock held
+    void sceneFromHost (bool canRecall);      // the Recall Snapshot parameter; lock held
+    void recallOnAudioThread (int index);     // lock held, no allocation
+    void setSceneParam (int value);
+    // A VST3 host sends every change the plug-in reports back to the plug-in. Normally that echo comes
+    // a block later and changes nothing; if the host's audio was idle in between it can come after
+    // newer values and would undo them. So the plug-in remembers what it reported for a while and
+    // does not take those values back.
+    struct Reported
+    {
+        float latest = 0.0f;      // what the parameter is meant to be now
+        float old[4] = {};        // what was reported lately
+        int count = 0;
+        juce::int64 at = 0;       // when (in processed samples)
+    };
+    void report (Reported&, float value, bool notified) const;
+    bool isStaleEcho (Reported&, float value) const;
+    std::array<std::array<Reported, kNumFields>, kSlots> slotReported {};   // guarded by lock
+    Reported sceneReported;                                                // guarded by lock
+    std::atomic<juce::int64> samplesDone { 0 };
+    std::atomic<bool> repush { false };
+    void restoreSpace (const SpaceParams&);
+    void setPlayParam (bool);
+    std::array<std::array<juce::RangedAudioParameter*, kNumFields>, kSlots> slotPrm {};
+    std::array<std::array<std::atomic<float>*, kNumFields>, kSlots> slotRaw {};
+    std::array<std::array<float, kNumFields>, kSlots> slotSeen {};     // guarded by lock
+    std::array<std::array<bool, kNumFields>, kSlots> slotHeld {};      // message thread: a gesture is open
+    std::atomic<float>* playRaw = nullptr;
+    std::atomic<float>* syncRaw = nullptr;
+    std::atomic<float>* sceneRaw = nullptr;
+    int seenScene = 0, sceneWanted = 0;       // guarded by lock: the parameter as last read, and as the plug-in means it
+    std::atomic<bool> seenPlay { false };
+    std::atomic<int> recalled { -1 };         // a recall the audio thread did: the message thread tidies up
+    std::atomic<int> blockCount { 0 };
+    int lastBlockCount = -1, idleTicks = 0;   // message thread
+    std::atomic<bool> playingNow { false }, hostDriving { false };
+    bool hasSegs = false, wasManual = false;  // audio thread
+    std::atomic<int> uiW { 0 };
     void rebuildCell (int cell, const CellSource&);
     void rebuildAll();
     void handleMidi (int note);
@@ -106,12 +182,12 @@ private:
     std::vector<VoiceSpec> specs;
     int numSpecs = 0;
     double tlTime = 0;
-    bool wasPlaying = false;
     std::atomic<bool> timelinePlayingFlag { false };
     std::atomic<double> tlPos { 0.0 };
     std::vector<float> scratchL, scratchR;
     juce::AudioBuffer<float> inCopy, fold;
     double motionClock = 0;
+    int orderCap = 7;
     std::atomic<double> motionNow { 0.0 };
     std::atomic<int> orderNow { 0 };
     std::atomic<float> inPeak { 0.0f };

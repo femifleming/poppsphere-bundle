@@ -86,7 +86,7 @@
 <section class="page cover">
   <div class="tri2"></div><div class="tri"></div>
   <div class="word mark"><span class="o">open</span><span class="p">field</span></div><br>
-  <span class="sub">manual &nbsp;·&nbsp; version 1.3</span><br>
+  <span class="sub">manual &nbsp;·&nbsp; version 1.4</span><br>
   <span class="sub" style="margin-top:2mm">an ambisonics encoder</span>
   <img class="shot" src="img/guide.png" alt="">
   <div class="meta"><span>vst3 · vst2 · au · lv2 · standalone · macos · windows · linux</span><span>november 2026</span></div>
@@ -117,6 +117,7 @@
     <li><span>19</span>help and demo</li>
     <li><span>20</span>midi and parameters</li>
     <li><span>21</span>reference</li>
+    <li><span>22</span>in a daw</li>
   </ol>
 
   <h1 style="margin-top:6mm"><span class="n">1</span>about openfield</h1>
@@ -170,15 +171,17 @@
   <ol>
     <li>Make a track and give it the channels. In <b>REAPER</b>: the track's <i>Routing</i> button → <i>Track channels</i>
     16 (or 36, 64). The master track needs only 2 if the decoder is binaural.</li>
-    <li>Insert openfield (VST3, VST2 or LV2). It offers up to 64 outputs and uses as many as the track has.</li>
+    <li>Insert <b>openfield fx</b> (the effect, an encoder for what is on the track) or <b>openfield</b> (the instrument).
+    It sends as many channels as the track has, up to 64 (chapter 22).</li>
     <li>Insert a decoder after it, set to the same order and to <b>AmbiX (ACN / SN3D)</b>: for headphones
     IEM <i>BinauralDecoder</i> or SPARTA <i>AmbiBIN</i>; for speakers IEM <i>AllRADecoder</i> or SPARTA <i>AmbiDEC</i>.</li>
     <li>Click a bracket on the left of openfield. Something plays around you.</li>
   </ol>
   <p>openfield plays as soon as something is in the play area, whether or not the transport runs. It has nothing
-  to do with the song tempo. Hosts that pass audio into the track feed the live input (chapter 9).</p>
-  <div class="note"><b>Ableton Live and Logic</b> have no tracks wide enough for this. There openfield sees a stereo
-  bus and plays a <b>stereo preview</b> (chapter 10). Build the piece with the preview and use <i>render to file</i>
+  to do with the song tempo, but the host's transport can run its timeline and the host can automate every sound
+  (chapter 22). Audio on the track feeds the live input (chapter 9).</p>
+  <div class="note"><b>Ableton Live and Logic</b> have no tracks wide enough for this. There openfield is a stereo
+  plug-in and plays a <b>stereo preview</b> (chapter 10). Build the piece with the preview and use <i>render to file</i>
   to write the full AmbiX file, which any Ambisonics player or decoder can then open. The <b>AU</b> version offers
   up to 3rd order (16 channels).</div>
 
@@ -750,12 +753,15 @@
       </table>
       <p class="small">Middle C = C3. Notes act on note-on; velocity and note-off are ignored. While the timeline plays,
       only B1 has an effect. A square added by MIDI goes to a random direction, from 10° below to 40° above, 2 m away.</p>
+      <p class="small" style="font-size:7.8pt">All can be automated (chapter 22). <b>Master</b> scales everything that goes out and into renders. <b>Ambisonic Order</b> is the
+  same as the seven squares. The next six are the rails (chapter 7), then the scene turn on the globe (chapter 5).
+  <b>Input Thru</b> is kept so that sessions match openprocess, but openfield ignores it: the input is heard only where you place it (chapter 9).</p>
     </div>
     <div>
-      <table style="font-size:8.3pt">
+      <table style="font-size:7.6pt">
         <tr><th>parameter</th><th>range</th><th>default</th></tr>
         <tr><td>Master</td><td>0 – 1</td><td>0.8</td></tr>
-        <tr><td>Input Thru</td><td>0 – 1</td><td>0 (ignored)</td></tr>
+        <tr><td>Input Thru</td><td>0 – 1</td><td>0</td></tr>
         <tr><td>Ambisonic Order</td><td>1st – 7th</td><td>3rd</td></tr>
         <tr><td>Distance Rolloff</td><td>0 – 100 %</td><td>50 %</td></tr>
         <tr><td>Distance Air</td><td>0 – 100 %</td><td>50 %</td></tr>
@@ -765,13 +771,14 @@
         <tr><td>Motion Speed</td><td>×0.1 – ×4</td><td>×1</td></tr>
         <tr><td>Scene Turn</td><td>−180° – 180°</td><td>0°</td></tr>
         <tr><td>Scene Tilt</td><td>−90° – 90°</td><td>0°</td></tr>
+        <tr><td>Timeline Play</td><td>off / on</td><td>off</td></tr>
+        <tr><td>Follow Host</td><td>off / on</td><td>on</td></tr>
+        <tr><td>Recall Snapshot</td><td>–, 1 – 10</td><td>–</td></tr>
+        <tr><td>Sound 01 – 24: Around, Height, Distance</td><td>±180°, −45 – 90°, 0.25 – 20 m</td><td>0°, 0°, 2 m</td></tr>
+        <tr><td>Sound 01 – 24: Loop Start, Length</td><td>0 – 100 %</td><td>0, 100 %</td></tr>
       </table>
     </div>
   </div>
-  <p>All can be automated. <b>Master</b> scales everything that goes out and into renders. <b>Ambisonic Order</b> is the
-  same as the seven squares. The next six are the rails
-  (chapter 7), the last two the scene turn on the globe (chapter 5). <b>Input Thru</b> is kept so that sessions match
-  openprocess, but openfield ignores it: the input is heard only where you place it (chapter 9).</p>
   <div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>15</span></div>
 </section>
 
@@ -802,8 +809,8 @@
     <tr><td>composition length</td><td>1 – 30 minutes; the timeline zooms to 10 s</td></tr>
     <tr><td>render</td><td>WAV, 48 kHz, 24-bit, AmbiX at the chosen order, streamed to disk, RF64 over 4 GB</td></tr>
     <tr><td>user folder</td><td><code>~/Music/openfield</code></td></tr>
-    <tr><td>saved with the session</td><td>play area (with distances, motions and speeds), snapshots, timeline, length, flag, how each square was made, parameters</td></tr>
-        <tr><td>plug-in code</td><td><code>OpSp</code> (openprocess and openfield can be used side by side)</td></tr>
+    <tr><td>saved with the session</td><td>play area (with distances, motions and speeds), snapshots, timeline, length, flag, how each square was made, parameters, window size</td></tr>
+        <tr><td>plug-ins</td><td>openfield (instrument, code <code>OpSp</code>) and openfield fx (effect, <code>OpSx</code>); 134 parameters</td></tr>
   </table>
   <p class="small"><b>Decoders that read openfield directly:</b> IEM Plug-in Suite (BinauralDecoder, AllRADecoder, SimpleDecoder, SceneRotator, up to 7th order) ·
   SPARTA (AmbiBIN, AmbiDEC, Rotator) · any player or decoder that reads AmbiX (ACN / SN3D) files.</p>
@@ -814,6 +821,87 @@
   <i>Sound On Sound</i>, October 2002 · Marc Weidenbaum, interview with Markus Popp, Disquiet / Pulse!, 1996.
   openfield is an independent homage. It is not made, endorsed or distributed by Markus Popp or Oval.</p>
   <div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>16</span></div>
+</section>
+
+<!-- ========== in a daw ========== -->
+<section class="page">
+  <h1><span class="n">22</span>in a daw</h1>
+  <p class="lead">openfield is a plug-in first; the app is the same thing in a window of its own. In a host it can be the
+  encoder of an audio track, the host's transport can run its timeline, and the host can automate every sound in the space.</p>
+  <h2 style="margin-top:0">two plug-ins</h2>
+  <table>
+    <tr><th style="width:24mm"></th><th>openfield</th><th>openfield fx</th></tr>
+    <tr><td>kind</td><td>instrument</td><td>effect</td></tr>
+    <tr><td>goes on</td><td>an instrument / MIDI track</td><td>an audio track, or after an instrument</td></tr>
+    <tr><td>live input</td><td>a side-chain: route another track into it</td><td>the track it sits on</td></tr>
+    <tr><td>when new</td><td>empty and silent</td><td>the track is placed straight ahead, 2 m away: move it, give it a motion</td></tr>
+  </table>
+  <p>Both hold the same workspace and take the same MIDI notes, and a session of one opens in the other. Ableton Live
+  takes an instrument only on a MIDI track and an effect on any track; REAPER takes either anywhere.</p>
+
+  <div class="cols">
+    <div>
+      <h2 style="margin-top:0">how many channels</h2>
+      <table style="font-size:8.3pt">
+        <tr><th>host, format</th><th>what goes out</th></tr>
+        <tr><td>REAPER, VST3</td><td>the width of the track when openfield is inserted: 4 – 8 channels 1st order, 10 – 14 2nd, 16 – 34 3rd,
+        36 up to 5th, 64 up to 7th</td></tr>
+        <tr><td>REAPER, Ardour, VST2</td><td>always 64 outputs; the track takes as many as it is wide. Put it on a wide track:
+        on a stereo track you would hear W and Y as left and right. The VST3 adapts to any track.</td></tr>
+        <tr><td>AU</td><td>4, 9 or 16 channels, as the host asks. REAPER always takes 16: put it on a 16 channel track.</td></tr>
+        <tr><td>Live, Logic and other stereo hosts</td><td>stereo preview, in every format</td></tr>
+      </table>
+      <p class="small">Set the track's width first, then insert openfield. The label under the order squares always says what is going
+      out. For 4th order use a 36 channel track, for 6th a 64 channel track.</p>
+    </div>
+    <div>
+      <div class="side" style="grid-template-columns:auto;gap:2mm">
+        <img src="img/host.png" style="width:52mm" alt="">
+      </div>
+      <h2 style="margin-top:0">the host's transport</h2>
+      <p>Left of the wheel, the plug-ins have a switch: <b>flag | host</b> (parameter <i>Follow Host</i>). <b>host</b>, the
+      default: while the host plays, the timeline plays at the host's position, past its end it comes round again, and an
+      export contains it. When the host stops, or while the timeline is empty, the play area sounds. <b>flag</b>: the
+      red flag (or <i>Timeline Play</i>) starts and stops the piece, as in the app.</p>
+    </div>
+  </div>
+
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>17</span></div>
+</section>
+
+<section class="page">
+  <h1><span class="n">22</span>in a daw (continued)</h1>
+  <h2 style="margin-top:0">automation</h2>
+  <p>Every sound in the play area takes the lowest free number from 1 to 24 when it enters, and keeps it until it leaves.
+  Select a sound and its label shows it: <span class="tag">sound 03: glass 8</span>. The host has five parameters for each number:
+  <b>Around</b>, <b>Height</b>, <b>Distance</b>, <b>Loop Start</b> and <b>Loop Length</b>. They work both ways: drag a sound in the
+  play area or on the globe and the parameters move, so a host that is recording automation writes the path down; play it
+  back and the sound moves. A motion on the sound runs on top of the place the parameters give. <b>Recall Snapshot</b>
+  (–, 1 – 10) puts a reel back into the play area exactly where the automation says, and <b>Timeline Play</b> is the red flag.</p>
+
+  <div class="cols">
+    <div>
+      <h2 style="margin-top:0">ableton live</h2>
+      <ol>
+        <li>Browser → <i>Plug-Ins</i> → <i>VST3</i> (or <i>VST</i>, <i>Audio Units</i>) → <i>FreakiePie</i>.</li>
+        <li>Drag <b>openfield fx</b> onto an audio track, or <b>openfield</b> onto a MIDI track. You hear the stereo preview.</li>
+        <li>To automate: unfold the device, click <i>Configure</i>, move a sound in the window; its parameters appear in the device.</li>
+        <li>For the Ambisonic piece use <i>render to file</i> in the plug-in.</li>
+      </ol>
+      <p class="small">After installing a new version: <i>Settings → Plug-Ins → Rescan</i>.</p>
+    </div>
+    <div>
+      <h2 style="margin-top:0">reaper</h2>
+      <ol>
+        <li>Give the track 16 channels (<i>Route</i> → <i>Track channels</i>). A stereo file on it is the input.</li>
+        <li>Insert <b>openfield fx</b>: the file is encoded, straight ahead at first.</li>
+        <li>Send the track to a decoder track, or put the decoder after openfield.</li>
+      </ol>
+      <p class="small"><b>Sessions</b> keep everything: play area, reels, timeline, how every square was made, all parameters, the
+      window's size. A reopened project never starts the timeline by hand and never recalls a snapshot by itself.</p>
+    </div>
+  </div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">field</span></span><span>18</span></div>
 </section>
 
 </body>

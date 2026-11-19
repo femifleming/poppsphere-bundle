@@ -39,8 +39,32 @@ product() {   # product sub-dir target manual-pdf
     cp "$ROOT/$pdf" "$P/$name Manual.pdf"
 }
 
+effect() {   # product target file-name: the effect build of a product ("openprocess fx"), plug-ins only, into the product's folder
+    local name="$1" tgt="$2" file="$3"
+    local A; A="$(art openprocess "$tgt")"
+    local P="$OUT/$name"
+    cp -R "$A/VST3/$file.vst3" "$P/"
+    case "$OS" in
+        macOS)
+            cp -R "$A/AU/$file.component" "$P/"
+            [ -d "$A/VST/$file.vst" ] && cp -R "$A/VST/$file.vst" "$P/"
+            for f in "$P/$file.component" "$P/$file.vst3" "$P/$file.vst"; do
+                [ -e "$f" ] && codesign --force --deep -s - "$f"
+            done ;;
+        Windows)
+            [ -f "$A/VST/$file.dll" ] && cp "$A/VST/$file.dll" "$P/" ;;
+        Linux)
+            [ -d "$A/LV2/$file.lv2" ] && cp -R "$A/LV2/$file.lv2" "$P/"
+            [ -f "$A/VST/lib$file.so" ] && cp "$A/VST/lib$file.so" "$P/$file.so"
+            [ -f "$A/VST/$file.so" ] && cp "$A/VST/$file.so" "$P/" ;;
+    esac
+    return 0
+}
+
 product openprocess openprocess openprocess "openprocess/docs/manual/openprocess Manual.pdf"
+effect  openprocess openprocess_fx "openprocess fx"
 product openfield  openprocess openfield  "openprocess/docs/manual-field/openfield Manual.pdf"
+effect  openfield  openfield_fx "openfield fx"
 product Quell       quell       Quell       "quell/docs/manual/manual.pdf"
 cp "$ROOT/README.md" "$ROOT/LICENSE" "$OUT/"
 cp "$ROOT/INSTALL.txt" "$OUT/" 2>/dev/null || true

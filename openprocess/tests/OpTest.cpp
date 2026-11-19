@@ -79,6 +79,35 @@ int main (int argc, char** argv)
     if (renderDir != juce::File()) renderDir.createDirectory();
     if (shotDir != juce::File()) shotDir.createDirectory();
 
+    // --state <file>: a small fixed session as base64 (what the plug-in gives its host), for host tests.
+    // Play area: three sounds. Reels: 1 = two sounds on the left, 2 = one on the right.
+    // Timeline (1 minute): reel 1 from 0 to 10 s, reel 2 from 20 to 30 s.
+    if (args.indexOf ("--state") >= 0)
+    {
+        OpProcessor p;
+        waitIdle (p);
+        const float left = OP_SPATIAL ? 0.25f : 0.1f, right = OP_SPATIAL ? 0.75f : 0.95f;
+        const float up = OP_SPATIAL ? space::kHorizonY : 0.9f;
+        Model m;
+        auto item = [&] (int cell, float x, float y) { Item i; i.id = m.nextId++; i.cell = cell; i.x = x; i.y = y; i.d = 0.3f; return i; };
+        m.mix = { item (9, 0.2f, OP_SPATIAL ? 0.4f : 0.9f), item (20, 0.8f, OP_SPATIAL ? 0.5f : 0.6f), item (36, 0.5f, 0.5f) };
+        m.mix[2].s = 0.2f; m.mix[2].e = 0.6f;
+        Snapshot a; a.id = m.nextId++; a.colour = 0; a.items = { item (9, left, up), item (20, left + 0.04f, up) };
+        Snapshot b; b.id = m.nextId++; b.colour = 1; b.items = { item (36, right, up) };
+        m.snaps = { a, b };
+        m.minutes = 1.0f;
+        Segment s1; s1.id = m.nextId++; s1.start = 0.0f; s1.len = 10.0f / 60.0f; s1.snap = a;
+        Segment s2; s2.id = m.nextId++; s2.start = 20.0f / 60.0f; s2.len = 10.0f / 60.0f; s2.snap = b;
+        m.segs = { s1, s2 };
+        p.setModel (m);
+        juce::MemoryBlock state;
+        p.getStateInformation (state);
+        const auto f = juce::File::getCurrentWorkingDirectory().getChildFile (args[args.indexOf ("--state") + 1]);
+        f.replaceWithText (juce::Base64::toBase64 (state.getData(), state.getSize()));
+        std::printf ("state written: %d bytes\n", (int) state.getSize());
+        return 0;
+    }
+
     // 1. bank
     {
         const auto t0 = juce::Time::getMillisecondCounterHiRes();
@@ -509,6 +538,217 @@ int main (int argc, char** argv)
             shot (*ed, "timeline30");
             oe->setTimelineView (0.30f, 0.06f); oe->tick();
             shot (*ed, "timeline30zoom");
+        }
+    }
+
+    // 6. in a host: parameters, transport, sessions
+    {
+        struct Head : juce::AudioPlayHead
+        {
+            bool playing = false; double seconds = 0;
+            juce::Optional<PositionInfo> getPosition() const override
+            {
+                PositionInfo i;
+                i.setIsPlaying (playing);
+                i.setTimeInSeconds (seconds);
+                return i;
+            }
+        };
+        auto pump = [] { juce::MessageManager::getInstance()->runDispatchLoopUntil (80); };
+        auto raw = [] (OpProcessor& p, const juce::String& id) { return p.params.getRawParameterValue (id)->load(); };
+        auto hostSets = [] (OpProcessor& p, const juce::String& id, float plain) {
+            auto* prm = p.params.getParameter (id);
+            const float v = prm->convertTo0to1 (plain);     // as a plug-in wrapper does for its host
+            prm->setValue (v);
+            prm->sendValueChangedMessageToListeners (v);
+        };
+        const auto X = OpProcessor::slotParamId (0, OpProcessor::fX), Y = OpProcessor::slotParamId (0, OpProcessor::fY);
+        const auto S = OpProcessor::slotParamId (0, OpProcessor::fStart), L = OpProcessor::slotParamId (0, OpProcessor::fLength);
+
+        OpProcessor p;
+        waitIdle (p);
+        p.prepareToPlay (48000, 480);
+        CHECK (p.getModel().mix.empty() && p.getModel().snaps.empty() && p.getModel().segs.empty(), "a new instance starts empty (nothing random, no preset)");
+        bool defaults = true;
+        for (auto* prm : p.getParameters()) defaults &= std::abs (prm->getValue() - prm->getDefaultValue()) < 1e-6f;
+        CHECK (defaults, "every parameter starts at its default");
+        float pk; double rms;
+        auto out = runProcessor (p, 0.5);
+        CHECK (finiteBuf (out, pk, rms) && pk == 0.0f, "an empty play area is silent");
+
+        // a sound gets the first slot, and the parameters show where it is
+        const int id = p.addItem (9, 0.25f, 0.9f);
+        CHECK (id > 0 && p.getModel().mix[0].slot == 0, "the first sound takes slot 1");
+        CHECK (std::abs (raw (p, X) - 0.25f) < 1e-6f && std::abs (raw (p, Y) - 0.9f) < 1e-6f, "its parameters show its place");
+        out = runProcessor (p, 1.0);
+        const double loudL = chRms (out, 0), loudR = chRms (out, 1);
+        CHECK (loudL > 0.001, "the sound is audible");
+        // the host moves it: quieter, and to the other side
+        hostSets (p, Y, 0.3f);
+        hostSets (p, X, 0.75f);
+        out = runProcessor (p, 1.0);
+        auto m1 = p.getModel();
+        CHECK (std::abs (m1.mix[0].y - 0.3f) < 1e-6f && std::abs (m1.mix[0].x - 0.75f) < 1e-6f, "automation moves the sound");
+       #if ! OP_SPATIAL
+        {
+            juce::AudioBuffer<float> tail (2, 24000);
+            for (int ch = 0; ch < 2; ++ch) tail.copyFrom (ch, 0, out, ch, 24000, 24000);
+            const double qL = chRms (tail, 0), qR = chRms (tail, 1);
+            std::printf ("  level 0.9 at 0.25: L %.4f R %.4f; level 0.3 at 0.75: L %.4f R %.4f\n", loudL, loudR, qL, qR);
+            CHECK (qR < 0.25 * loudL && qL < qR && loudR < loudL, "and what is heard follows: quieter, on the other side");
+        }
+       #else
+        juce::ignoreUnused (loudR);
+       #endif
+        hostSets (p, S, 0.5f);
+        hostSets (p, L, 0.1f);
+        runProcessor (p, 0.1);
+        m1 = p.getModel();
+        CHECK (std::abs (m1.mix[0].s - 0.5f) < 1e-6f && std::abs (m1.mix[0].e - 0.6f) < 1e-5f, "loop start / length parameters set the looped part");
+        // the play area moves the parameters
+        p.edit ([] (Model& m) { m.mix[0].x = 0.1f; m.mix[0].y = 0.8f; m.mix[0].s = 0.2f; m.mix[0].e = 0.7f; });
+        runProcessor (p, 0.1);
+        m1 = p.getModel();
+        CHECK (std::abs (raw (p, X) - 0.1f) < 1e-6f && std::abs (raw (p, L) - 0.5f) < 1e-5f && std::abs (m1.mix[0].x - 0.1f) < 1e-6f
+               && std::abs (m1.mix[0].e - 0.7f) < 1e-5f, "moving a sound moves its parameters (and it stays where it was put)");
+        // a second sound takes the next slot; removing the first leaves the second in its slot
+        const int id2 = p.addItem (20, 0.6f, 0.5f);
+        CHECK (p.getModel().mix[1].slot == 1, "the next sound takes slot 2");
+        p.edit ([&] (Model& m) { m.mix.erase (m.mix.begin()); });
+        CHECK (p.getModel().mix[0].id == id2 && p.getModel().mix[0].slot == 1, "a sound keeps its slot when another leaves");
+        const int id3 = p.addItem (30, 0.4f, 0.4f);
+        juce::ignoreUnused (id3);
+        CHECK (p.getModel().mix[1].slot == 0, "a new sound takes the free slot");
+
+        // snapshots by parameter, on the audio thread
+        p.takeSnapshot();                                  // 1: two sounds
+        p.edit ([] (Model& m) { m.mix.resize (1); m.mix[0].x = 0.9f; });
+        p.takeSnapshot();                                  // 2: one sound
+        runProcessor (p, 0.1);
+        hostSets (p, "scene", 1.0f);
+        runProcessor (p, 0.1);
+        CHECK (p.getModel().mix.size() == 2, "Recall Snapshot 1 brings its two sounds back");
+        hostSets (p, "scene", 2.0f);
+        runProcessor (p, 0.1);
+        pump();
+        m1 = p.getModel();
+        CHECK (m1.mix.size() == 1 && std::abs (m1.mix[0].x - 0.9f) < 1e-6f, "Recall Snapshot 2 brings its one sound back");
+        CHECK (std::abs (raw (p, OpProcessor::slotParamId (m1.mix[0].slot, OpProcessor::fX)) - 0.9f) < 1e-6f, "and the parameters follow the recalled snapshot");
+        runProcessor (p, 0.1);
+        CHECK (p.getModel().mix.size() == 1 && std::abs (p.getModel().mix[0].x - 0.9f) < 1e-6f, "which stays as recalled");
+        p.loadSnapshot (p.getModel().snaps[0].id);
+        runProcessor (p, 0.1);
+        CHECK (p.getModel().mix.size() == 2 && juce::roundToInt (raw (p, "scene")) == 1, "a reel dragged into the play area shows in Recall Snapshot");
+
+        // the timeline: by parameter, and with the host
+        p.edit ([] (Model& m) {
+            m.minutes = 1.0f;
+            Segment a; a.id = m.nextId++; a.start = 0.0f; a.len = 0.25f; a.snap = m.snaps[0]; m.segs.push_back (a);      // 0 - 15 s: two sounds
+            Segment b; b.id = m.nextId++; b.start = 0.5f; b.len = 0.25f; b.snap = m.snaps[1]; m.segs.push_back (b);      // 30 - 45 s: one sound
+        });
+        hostSets (p, "play", 1.0f);
+        runProcessor (p, 0.5);
+        CHECK (p.timelinePlaying() && ! p.hostRunning(), "Timeline Play starts the timeline");
+        hostSets (p, "play", 0.0f);
+        runProcessor (p, 0.1);
+        CHECK (! p.timelinePlaying(), "and stops it");
+
+        Head head;
+        p.setPlayHead (&head);
+        head.playing = true; head.seconds = 32.0;
+        runProcessor (p, 0.2);
+        // (the test tool is not a desktop app, so it has a host transport)
+        CHECK (p.timelinePlaying() && p.hostRunning(), "Follow Host: the host's transport plays the timeline");
+        CHECK (std::abs (p.timelineSeconds() - 32.0) < 0.05, "at the host's position");
+        head.seconds = 70.0;
+        runProcessor (p, 0.1);
+        CHECK (std::abs (p.timelineSeconds() - 10.0) < 0.05, "past its end the piece comes round again");
+        head.seconds = 20.0;
+        runProcessor (p, 0.5);            // (what was sounding fades out)
+        out = runProcessor (p, 0.5);
+        CHECK (finiteBuf (out, pk, rms) && pk < 1.0e-3f, "between two segments the timeline is silent");
+        head.playing = false;
+        out = runProcessor (p, 0.5);
+        CHECK (! p.timelinePlaying() && finiteBuf (out, pk, rms) && rms > 1.0e-4, "the host stops: the play area sounds again");
+        hostSets (p, "sync", 0.0f);
+        head.playing = true;
+        runProcessor (p, 0.2);
+        CHECK (! p.timelinePlaying(), "with Follow Host off the host's transport does nothing");
+        hostSets (p, "sync", 1.0f);
+        head.playing = false;
+        runProcessor (p, 0.1);
+
+        // the session: everything comes back, nothing is recalled or started by itself
+        hostSets (p, "play", 1.0f);
+        runProcessor (p, 0.1);
+        pump();
+        p.setEditorWidth (800);
+        juce::MemoryBlock state;
+        p.getStateInformation (state);
+        hostSets (p, "play", 0.0f);
+        runProcessor (p, 0.1);
+        const auto pm = p.getModel();
+        OpProcessor q;
+        waitIdle (q);
+        q.prepareToPlay (48000, 480);
+        q.setStateInformation (state.getData(), (int) state.getSize());
+        waitIdle (q);
+        runProcessor (q, 0.2);
+        pump();
+        const auto qm = q.getModel();
+        bool same = qm.mix.size() == pm.mix.size() && qm.snaps.size() == pm.snaps.size() && qm.segs.size() == pm.segs.size();
+        for (size_t k = 0; same && k < qm.mix.size(); ++k)
+            same = qm.mix[k].cell == pm.mix[k].cell && qm.mix[k].slot == pm.mix[k].slot && std::abs (qm.mix[k].x - pm.mix[k].x) < 1e-6f
+                   && std::abs (qm.mix[k].y - pm.mix[k].y) < 1e-6f && std::abs (qm.mix[k].s - pm.mix[k].s) < 1e-6f && std::abs (qm.mix[k].e - pm.mix[k].e) < 1e-5f;
+        CHECK (same, "a session brings the play area, reels and timeline back");
+        bool paramsSame = true;
+        for (int k = 0; k < p.getParameters().size(); ++k)
+            if (std::abs (p.getParameters()[k]->getValue() - q.getParameters()[k]->getValue()) > 1e-6f)
+            {
+                paramsSame = false;
+                std::printf ("  parameter %s: %f / %f\n", p.getParameters()[k]->getName (40).toRawUTF8(), p.getParameters()[k]->getValue(), q.getParameters()[k]->getValue());
+            }
+        CHECK (paramsSame, "and every parameter");
+        CHECK (! q.timelinePlaying() && raw (q, "play") < 0.5f, "the timeline does not start by itself in a reopened session");
+        CHECK (q.editorWidth() == 800, "the editor's size comes back");
+        {
+            std::unique_ptr<juce::AudioProcessorEditor> eq (q.createEditor()), ep (OpProcessor().createEditor());
+            CHECK (eq->getWidth() == 800 && eq->getHeight() == 576, "the editor opens at the size it had in the session");
+            CHECK (ep->getWidth() == OpEditor::W && ep->getHeight() == OpEditor::H, "a new editor opens at its normal size");
+            eq->setSize (700, 504);
+            CHECK (q.editorWidth() == 700, "resizing the editor is remembered");
+        }
+        const auto outP = runProcessor (p, 1.0), outQ = runProcessor (q, 1.0);
+        juce::ignoreUnused (outP, outQ);
+
+        // a session saved by 1.3 (no "Sound nn" parameters): they take the play area's values
+        {
+            auto xml = juce::AudioProcessor::getXmlFromBinary (state.getData(), (int) state.getSize());
+            auto root = juce::ValueTree::fromXml (*xml);
+            auto prm = root.getChildWithName ("params");
+            for (int k = prm.getNumChildren(); --k >= 0;)
+            {
+                const auto pid = prm.getChild (k)["id"].toString();
+                if (pid.length() == 4 && pid.startsWithChar ('s') && pid != "sync") prm.removeChild (k, nullptr);
+                else if (pid == "play" || pid == "sync" || pid == "scene") prm.removeChild (k, nullptr);
+            }
+            for (auto item : root.getChildWithName ("model").getChildWithName ("mix")) item.removeProperty ("slot", nullptr);
+            juce::MemoryBlock old;
+            juce::AudioProcessor::copyXmlToBinary (*root.createXml(), old);
+            OpProcessor o;
+            waitIdle (o);
+            o.prepareToPlay (48000, 480);
+            o.setStateInformation (old.getData(), (int) old.getSize());
+            waitIdle (o);
+            runProcessor (o, 0.2);
+            pump();
+            const auto om = o.getModel();
+            bool ok = om.mix.size() == pm.mix.size();
+            for (size_t k = 0; ok && k < om.mix.size(); ++k)
+                ok = om.mix[k].slot == (int) k && std::abs (om.mix[k].x - pm.mix[k].x) < 1e-6f && std::abs (om.mix[k].y - pm.mix[k].y) < 1e-6f
+                     && std::abs (raw (o, OpProcessor::slotParamId ((int) k, OpProcessor::fX)) - pm.mix[k].x) < 1e-6f
+                     && std::abs (raw (o, OpProcessor::slotParamId ((int) k, OpProcessor::fY)) - pm.mix[k].y) < 1e-6f;
+            CHECK (ok, "a 1.3 session opens as it was, and its sounds get parameters");
         }
     }
 

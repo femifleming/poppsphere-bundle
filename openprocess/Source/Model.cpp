@@ -13,8 +13,27 @@ Segment* Model::findSeg (int id)
     return nullptr;
 }
 
+void Model::fixSlots()
+{
+    bool used[kMaxItems] = {};
+    for (auto& i : mix)
+    {
+        if (i.slot >= 0 && i.slot < kMaxItems && ! used[i.slot]) used[i.slot] = true;
+        else i.slot = -1;
+    }
+    for (auto& i : mix)
+    {
+        if (i.slot >= 0) continue;
+        for (int k = 0; k < kMaxItems; ++k)
+            if (! used[k]) { used[k] = true; i.slot = k; break; }
+    }
+}
+
 void Model::link()
 {
+    // room for a whole play area, so the audio thread can recall a snapshot without allocating
+    if (mix.capacity() < (size_t) kMaxItems) mix.reserve ((size_t) kMaxItems);
+    fixSlots();
     const int n = (int) segs.size();
     std::vector<int> order ((size_t) n);
     for (int i = 0; i < n; ++i) order[(size_t) i] = i;
@@ -91,6 +110,7 @@ juce::ValueTree itemTree (const Item& i)
     t.setProperty ("motion", i.motion, nullptr);
     t.setProperty ("mrate", i.mrate, nullptr);
     t.setProperty ("mseed", i.mseed, nullptr);
+    if (i.slot >= 0) t.setProperty ("slot", i.slot, nullptr);
     return t;
 }
 
@@ -113,6 +133,7 @@ Item itemFrom (const juce::ValueTree& t)
     i.motion = juce::jlimit (-1, motion::Count - 1, (int) t.getProperty ("motion", -1));
     i.mrate = juce::jlimit (0.25f, 4.0f, (float) t.getProperty ("mrate", 1.0f));
     i.mseed = juce::jlimit (0.0f, 1.0f, (float) t.getProperty ("mseed", (float) ((i.id * 0.6180339887) - std::floor (i.id * 0.6180339887))));
+    i.slot = juce::jlimit (-1, Model::kMaxItems - 1, (int) t.getProperty ("slot", -1));
    #if ! OP_SPATIAL
     if (i.isLive()) i.cell = 0;
    #endif

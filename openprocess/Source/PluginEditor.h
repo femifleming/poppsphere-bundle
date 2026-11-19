@@ -60,6 +60,7 @@ private:
     static Rect snapButtonRect() { return { 636, 516, 130, 74 }; }
     static Rect reelRect (int i) { return { 380.0f + i * 46.0f, 598, 40, 34 }; }
     static Rect wheelRect() { return { 232, 634, 66, 66 }; }
+    static Rect hostRect() { return { 136, 660, 84, 14 }; }            // flag | host: who starts the timeline (plug-ins)
     static Rect timelineRect() { return { 330, 668, 540, 10 }; }
     static Rect timelineZone() { return { 318, 618, 566, 96 }; }       // where the mouse wheel zooms the timeline
     static Rect overviewRect() { return { 330, 703, 540, 6 }; }        // the whole composition, when zoomed in
@@ -97,6 +98,7 @@ private:
     Pt itemPos (const Item&) const;
     void posToXY (Pt p, float& x, float& y) const;
     float barWidth (const Item&) const;
+    juce::String slotLabel (const Item&) const;
     Rect barRect (int voiceId, const Item&) const;
     Rect stripRect (int voiceId, const Item&) const;
     Rect attachedFxRect (int voiceId, const Item&) const;
@@ -179,6 +181,8 @@ private:
     Pt downPt, curPt, grabOffset;
     float dragStartVal = 0;
     int fzRailK = 0;
+    bool hostRuns = false;            // the host's transport is playing the timeline
+    bool sizeKept = false;            // from here on the window's size is remembered in the session
     Model wheelStart;
     bool moved = false;
     std::deque<Pt> trail;

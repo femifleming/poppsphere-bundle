@@ -81,7 +81,7 @@
 <section class="page cover">
   <div class="tri2"></div><div class="tri"></div>
   <div class="word mark"><span class="o">open</span><span class="p">process</span></div><br>
-  <span class="sub">manual &nbsp;·&nbsp; version 1.3</span>
+  <span class="sub">manual &nbsp;·&nbsp; version 1.4</span>
   <img class="shot" src="img/guide.png" alt="">
   <div class="meta"><span>vst3 · vst2 · au · lv2 · standalone · macos · windows · linux</span><span>november 2026</span></div>
 </section>
@@ -106,6 +106,7 @@
     <li><span>14</span>help and demo</li>
     <li><span>15</span>midi and parameters</li>
     <li><span>16</span>reference</li>
+    <li><span>17</span>in a daw</li>
   </ol>
 
   <h1 style="margin-top:9mm"><span class="n">1</span>about openprocess</h1>
@@ -147,9 +148,11 @@
     <tr><td>Linux</td><td><code>openprocess.vst3</code> → <code>~/.vst3</code>, <code>openprocess.lv2</code> → <code>~/.lv2</code>,
       <code>openprocess.so</code> (VST2) → <code>~/.vst</code>; <code>openprocess</code> runs on its own (ALSA or JACK).</td></tr>
   </table>
-  <p><b>In a DAW</b>, load openprocess on an instrument track. It plays as soon as something is in the play area,
-  whether or not the transport is running. It has nothing to do with the song tempo. It has a stereo audio input,
-  which only <i>capture input</i> and <i>Input Thru</i> use. Hosts that offer a side-chain input for instruments can feed it there.</p>
+  <p style="font-size:8.8pt">The effect, <code>openprocess fx</code>, lies beside each of these files and goes to the same places.</p>
+  <p><b>In a DAW</b> there are two plug-ins: <b>openprocess</b>, an instrument for an instrument / MIDI track, and
+  <b>openprocess fx</b>, the same workspace as an effect for an audio track. Either plays as soon as something is in the
+  play area. It has nothing to do with the song tempo, but the host's transport can run its timeline, and the host can
+  automate every sound. Chapter 17 is about all of that.</p>
   <p><b>The standalone app</b> uses the audio device set under <i>Options → Audio/MIDI Settings</i>. It asks for
   microphone access the first time, for the capture function. Your work is saved when you quit and is back
   when you start again.</p>
@@ -528,15 +531,19 @@
       <table>
         <tr><th>parameter</th><th>range</th><th>default</th></tr>
         <tr><td>Master</td><td>0 – 1</td><td>0.8</td></tr>
-        <tr><td>Input Thru</td><td>0 – 1</td><td>0</td></tr>
+        <tr><td>Input Thru</td><td>0 – 1</td><td>0 (fx: 1)</td></tr>
+        <tr><td>Timeline Play</td><td>off / on</td><td>off</td></tr>
+        <tr><td>Follow Host</td><td>off / on</td><td>on</td></tr>
+        <tr><td>Recall Snapshot</td><td>–, 1 – 10</td><td>–</td></tr>
+        <tr><td>Sound 01 – 24: Pan, Level, Loop Start, Loop Length</td><td>L – R, 0 – 100 %</td><td>C, 70 %, 0 %, 100 %</td></tr>
       </table>
-      <p>Both can be automated. <b>Input Thru</b> lets the audio input through to the output, for example to hear what you
-      are about to capture. The output has a soft limiter just below full scale.</p>
+      <p style="font-size:8.8pt">All can be automated (chapter 17). <b>Input Thru</b> lets the audio input through to the output. The
+      loops pass a soft limiter just below full scale.</p>
     </div>
   </div>
 
   <h1 style="margin-top:6mm"><span class="n">16</span>reference</h1>
-  <table>
+  <table style="font-size:8.3pt">
     <tr><th>item</th><th>value</th></tr>
     <tr><td>browser</td><td>64 loops (8 rows × 8 columns), 0.5 – 9 s each</td></tr>
     <tr><td>sounds in the play area</td><td>up to 24</td></tr>
@@ -547,16 +554,84 @@
     <tr><td>capture</td><td>last 8 s of input</td></tr>
     <tr><td>render</td><td>WAV, 48 kHz, 16-bit, stereo, streamed to disk</td></tr>
     <tr><td>user folder</td><td><code>~/Music/openprocess</code></td></tr>
-    <tr><td>saved with the session</td><td>play area, snapshots, timeline, length, flag, how each square was made, parameters</td></tr>
+    <tr><td>saved with the session</td><td>play area, snapshots, timeline, length, flag, how each square was made, parameters, window size</td></tr>
+    <tr><td>plug-ins</td><td>openprocess (instrument, code <code>OpPr</code>) and openprocess fx (effect, <code>OpPx</code>); 101 parameters</td></tr>
     <tr><td>window</td><td>1000 × 720 at 100 %, resizable 60 – 160 %</td></tr>
   </table>
-  <h2>sources</h2>
-  <p style="font-size:8.3pt">Ovalprocess sound installation, Dokumentation, Bedienungs- und Wartungshinweise, and Markus Popp,
+  <h2 style="margin-top:3mm">sources</h2>
+  <p style="font-size:7.8pt">Ovalprocess sound installation, Dokumentation, Bedienungs- und Wartungshinweise, and Markus Popp,
   ovalprocess project text (Berlin, 7 April 2001), Ars Electronica archive · Markus Popp, ovalprocess US 2k lecture v0.2,
   Ars Electronica archive · Oval, "Ovalprocess", <i>Leonardo</i> 35/5, 2002 · Sam Inglis, "Markus Popp: Music As Software",
   <i>Sound On Sound</i>, October 2002 · Marc Weidenbaum, interview with Markus Popp, Disquiet / Pulse!, 1996.
   openprocess is an independent homage. It is not made, endorsed or distributed by Markus Popp or Oval.</p>
   <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>12</span></div>
+</section>
+
+<!-- ========== in a daw ========== -->
+<section class="page">
+  <h1><span class="n">17</span>in a daw</h1>
+  <p class="lead">openprocess is a plug-in first; the app is the same thing in a window of its own. In a host it can
+  sit on an audio track, the host's transport can run its timeline, and the host can automate every sound in the play area.</p>
+  <h2 style="margin-top:0">two plug-ins</h2>
+  <table>
+    <tr><th style="width:24mm"></th><th>openprocess</th><th>openprocess fx</th></tr>
+    <tr><td>kind</td><td>instrument</td><td>effect</td></tr>
+    <tr><td>goes on</td><td>an instrument / MIDI track</td><td>an audio track, or after an instrument</td></tr>
+    <tr><td>audio input</td><td>a side-chain: route another track into it</td><td>the track it sits on</td></tr>
+    <tr><td>Input Thru</td><td>starts at 0</td><td>starts at 100 %: the track passes, the loops play on top</td></tr>
+    <tr><td>capture input</td><td>the last 8 s of what is routed in</td><td>the last 8 s the track played</td></tr>
+  </table>
+  <p>Both hold the same workspace and take the same MIDI notes, and a session of one opens in the other. Ableton Live
+  takes an instrument only on a MIDI track and an effect on any track; REAPER takes either anywhere.</p>
+
+  <div class="side" style="margin-top:3mm">
+    <img src="img/host.png" style="width:52mm" alt="">
+    <div>
+      <h2 style="margin-top:0">the host's transport</h2>
+      <p>Left of the wheel, the plug-ins have a switch: <b>flag | host</b> (parameter <i>Follow Host</i>).</p>
+      <p><b>host</b>, the default: while the host plays, the timeline plays at the host's position. 1:30 in the song is
+      1:30 on the timeline; past its end the piece comes round again; an export contains it. The switch blinks, the play area
+      is locked, and the red flag's place is not used. When the host stops, or while the timeline is empty, the play area sounds as always.</p>
+      <p><b>flag</b>: the host's transport does nothing; the red flag (or <i>Timeline Play</i>) starts and stops the piece, as in the app.</p>
+    </div>
+  </div>
+
+  <h2>automation</h2>
+  <p>Every sound in the play area takes the lowest free number from 1 to 24 when it enters, and keeps it until it leaves.
+  Select a sound and its label shows it: <span class="tag">sound 03: glass 8</span>. The host has four parameters for each number:
+  <b>Pan</b>, <b>Level</b>, <b>Loop Start</b> and <b>Loop Length</b>. They work both ways. Drag a sound or its red pointers and
+  the parameters move, so a host that is recording automation writes the move down; play the automation back and the
+  sound moves. Presets, operators and reels set them too. <b>Recall Snapshot</b> (–, 1 – 10) puts a reel back into the play
+  area exactly where the automation says, also in an export, and <b>Timeline Play</b> is the red flag.</p>
+
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>13</span></div>
+</section>
+
+<section class="page">
+  <h1><span class="n">17</span>in a daw (continued)</h1>
+  <div class="cols">
+    <div>
+      <h2 style="margin-top:0">ableton live</h2>
+      <ol>
+        <li>Browser → <i>Plug-Ins</i> → <i>VST3</i> (or <i>VST</i>, <i>Audio Units</i>) → <i>FreakiePie</i>.</li>
+        <li>Drag <b>openprocess</b> onto a MIDI track, or <b>openprocess fx</b> onto an audio track.</li>
+        <li>Open its window with the device's wrench button. Build a piece; press Live's play.</li>
+        <li>To automate: unfold the device, click <i>Configure</i>, move a sound in the window. Its parameters appear in
+        the device and can be automated or mapped. (openprocess has too many for Live to list by itself.)</li>
+      </ol>
+      <p style="font-size:8.8pt">After installing a new version: <i>Settings → Plug-Ins → Rescan</i>.</p>
+    </div>
+    <div>
+      <h2 style="margin-top:0">reaper and others</h2>
+      <p>Either plug-in goes on any track; audio on the track reaches its input. All parameters are in the track's
+      envelope list. Renders follow the timeline when the switch is on <i>host</i>.</p>
+      <h2>sessions</h2>
+      <p>The host's project keeps everything: play area, reels, timeline, how every square was made (your own files by
+      their path), all parameters and the size of the window. A reopened project never starts the timeline by hand
+      and never recalls a snapshot by itself.</p>
+    </div>
+  </div>
+  <div class="folio"><span class="mark"><span class="o">open</span><span class="p">process</span></span><span>14</span></div>
 </section>
 
 </body>

@@ -32,6 +32,8 @@ struct Item                 // one looping sound in the mix window
     double motionStart = 0;  // the motion clock when the motion was put on (each sound runs its own)
     float mrate = 1.0f;      // its speed, 0.25 .. 4
     float mseed = 0.5f;      // its own variation: direction, small differences of rate and path
+    // which of the host's "Sound nn ..." parameters belong to it (0..23, given when it enters the play area)
+    int slot = -1;
     bool isLive() const { return cell == kLiveCell; }
 };
 
@@ -180,6 +182,7 @@ struct Model
     Item* findItem (int id);
     Segment* findSeg (int id);
     void link();    // after any change to the timeline: who glides from whom, and the voice ids
+    void fixSlots();    // every sound of the play area gets its own parameter slot (no allocation)
     static int voiceId (int segId, int itemIndex) { return 1000000 + segId * 256 + itemIndex; }
 
     // every sound of the timeline at t seconds (no allocation: the audio thread calls it)
