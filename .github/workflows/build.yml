@@ -53,7 +53,26 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel 4 --target openprocess_All openfield_All openprocess_fx_All openfield_fx_All Quell_All openprocessTest openfieldTest QuellTest
 
+      - name: Test (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $dumpbin = Get-ChildItem "$vs\VC\Tools\MSVC" -Recurse -Filter dumpbin.exe | Where-Object { $_.FullName -match 'Hostx64\\x64' } | Select-Object -First 1
+          $failed = 0
+          foreach ($t in 'openprocessTest', 'openfieldTest', 'QuellTest') {
+            $exe = Get-ChildItem build -Recurse -Filter "$t.exe" | Where-Object { $_.FullName -match '_artefacts' } | Select-Object -First 1
+            Write-Host "== $t ($($exe.FullName))"
+            if ($dumpbin) { & $dumpbin.FullName /nologo /dependents $exe.FullName }
+            & $exe.FullName
+            $code = $LASTEXITCODE
+            Write-Host ("== $t exit {0} (0x{0:X8})" -f $code)
+            if ($code -ne 0) { $failed = 1 }
+          }
+          exit $failed
+
       - name: Test
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           find_exe() { find build -type f \( -name "$1" -o -name "$1.exe" \) -path "*_artefacts*" | head -n 1; }
