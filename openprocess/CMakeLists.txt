@@ -8,6 +8,9 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 project(openprocess VERSION 1.4.0 LANGUAGES C CXX)
+# Windows: the C/C++ runtime goes into each binary, so nothing depends on which msvcp140.dll a machine
+# (or a shell's PATH) happens to have
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)

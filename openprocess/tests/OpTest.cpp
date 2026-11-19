@@ -5,6 +5,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include <functional>
+#include <cstdio>
 
 static double chRms (const juce::AudioBuffer<float>& b, int ch)
 {
@@ -70,6 +71,7 @@ static juce::AudioBuffer<float> runProcessor (OpProcessor& p, double seconds, do
 
 int main (int argc, char** argv)
 {
+    std::setvbuf (stdout, nullptr, _IONBF, 0);     // a crash on a build machine still shows how far it got
     juce::ScopedJuceInitialiser_GUI gui;
     juce::StringArray args;
     for (int i = 1; i < argc; ++i) args.add (argv[i]);
@@ -554,7 +556,7 @@ int main (int argc, char** argv)
                 return i;
             }
         };
-        auto pump = [] { juce::MessageManager::getInstance()->runDispatchLoopUntil (80); };
+        auto pump = [] { juce::MessageManager::getInstance()->runDispatchLoopUntil (400); };   // the 30 Hz timer, also on a slow build machine
         auto raw = [] (OpProcessor& p, const juce::String& id) { return p.params.getRawParameterValue (id)->load(); };
         auto hostSets = [] (OpProcessor& p, const juce::String& id, float plain) {
             auto* prm = p.params.getParameter (id);
